@@ -3,6 +3,8 @@ use pyo3::prelude::*;
 use serde::Serialize;
 use serde_json::Value;
 
+mod transport;
+
 #[derive(Serialize)]
 struct SchemaSummary {
     version: &'static str,
@@ -60,6 +62,37 @@ fn describe_schema() -> PyResult<String> {
 }
 
 #[pyfunction]
+fn copy_source_to_sink(source_uri: &str, sink_uri: &str) -> PyResult<()> {
+    use std::io::{Read, Write};
+
+    let router = transport::TransportRouter::new();
+
+    let mut reader = router
+        .open_read(source_uri)
+        .map_err(|e| PyValueError::new_err(format!("Transport source error: {e}")))?;
+
+    let mut writer = router
+        .open_write(sink_uri)
+        .map_err(|e| PyValueError::new_err(format!("Transport sink error: {e}")))?;
+
+    let mut buffer = [0_u8; 8 * 1024];
+    loop {
+        let read = reader
+            .read(&mut buffer)
+            .map_err(|e| PyValueError::new_err(format!("Read error: {e}")))?;
+        if read == 0 {
+            break;
+        }
+
+        writer
+            .write_all(&buffer[..read])
+            .map_err(|e| PyValueError::new_err(format!("Write error: {e}")))?;
+    }
+
+    Ok(())
+}
+
+#[pyfunction]
 fn render_pngs(_ir_json: &str, _output_target: &str) -> PyResult<()> {
     Err(PyNotImplementedError::new_err(
         "PNG rendering is not implemented yet. This scaffold only provides API placeholders.",
@@ -77,6 +110,7 @@ fn render_pptx(_ir_json: &str, _output_target: &str) -> PyResult<()> {
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(validate, m)?)?;
     m.add_function(wrap_pyfunction!(describe_schema, m)?)?;
+    m.add_function(wrap_pyfunction!(copy_source_to_sink, m)?)?;
     m.add_function(wrap_pyfunction!(render_pngs, m)?)?;
     m.add_function(wrap_pyfunction!(render_pptx, m)?)?;
     Ok(())

@@ -28,6 +28,22 @@ def test_describe_schema_contains_expected_keys():
     assert "left justify" in schema["qualitative_aliases"]
 
 
+def test_copy_source_to_sink_roundtrip(tmp_path):
+    source = tmp_path / "source.txt"
+    destination = tmp_path / "destination.txt"
+    source.write_text("transport-data", encoding="utf-8")
+
+    render_slides.copy_source_to_sink(str(source), str(destination))
+
+    assert destination.read_text(encoding="utf-8") == "transport-data"
+
+
+def test_copy_source_to_sink_rejects_unknown_scheme():
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.copy_source_to_sink("s3://bucket/a.txt", "file:///tmp/out.txt")
+    assert "Unsupported URI scheme" in str(exc_info.value)
+
+
 def test_render_pngs_placeholder_raises_not_implemented():
     with pytest.raises(NotImplementedError):
         render_slides.render_pngs('{"slides": []}', "file:///tmp/slides")
