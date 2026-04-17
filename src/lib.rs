@@ -1,9 +1,19 @@
+//! Core Rust implementation for the `render_slides` Python package.
+//!
+//! This crate currently exposes a small Python API surface for:
+//! - validating slideshow IR JSON payloads,
+//! - describing the currently supported schema summary, and
+//! - copying bytes across local or HTTP(S) transports.
+//!
+//! Rendering entry points are intentionally scaffolded and return
+//! `NotImplementedError` until rendering backends are integrated.
+
 use pyo3::exceptions::{PyNotImplementedError, PyValueError};
 use pyo3::prelude::*;
 use serde::Serialize;
 use serde_json::Value;
 
-mod transport;
+pub mod transport;
 
 #[derive(Serialize)]
 struct SchemaSummary {
@@ -12,6 +22,7 @@ struct SchemaSummary {
     qualitative_aliases: Vec<&'static str>,
 }
 
+/// Validates the minimal contract for a render-slides IR payload.
 fn validate_ir(parsed: &Value) -> Result<(), String> {
     if parsed.get("slides").is_none() {
         return Err(
@@ -27,6 +38,7 @@ fn validate_ir(parsed: &Value) -> Result<(), String> {
     Ok(())
 }
 
+/// Builds a small, human-readable summary of the supported schema surface.
 fn schema_summary() -> SchemaSummary {
     SchemaSummary {
         version: "0.1",
@@ -44,6 +56,7 @@ fn schema_summary() -> SchemaSummary {
 }
 
 #[pyfunction]
+/// Validates an IR JSON document and returns `"ok"` when it is accepted.
 fn validate(ir_json: &str) -> PyResult<String> {
     let parsed: Value = serde_json::from_str(ir_json)
         .map_err(|e| PyValueError::new_err(format!("Invalid JSON: {e}")))?;
@@ -54,6 +67,7 @@ fn validate(ir_json: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
+/// Returns a pretty-printed JSON summary of schema version, layouts, and aliases.
 fn describe_schema() -> PyResult<String> {
     let summary = schema_summary();
 
@@ -62,6 +76,7 @@ fn describe_schema() -> PyResult<String> {
 }
 
 #[pyfunction]
+/// Copies bytes from a source URI to a sink URI using the transport router.
 fn copy_source_to_sink(source_uri: &str, sink_uri: &str) -> PyResult<()> {
     use std::io::{Read, Write};
 
@@ -97,6 +112,7 @@ fn copy_source_to_sink(source_uri: &str, sink_uri: &str) -> PyResult<()> {
 }
 
 #[pyfunction]
+/// Placeholder API for PNG rendering while the renderer is not yet implemented.
 fn render_pngs(_ir_json: &str, _output_target: &str) -> PyResult<()> {
     Err(PyNotImplementedError::new_err(
         "PNG rendering is not implemented yet. This scaffold only provides API placeholders.",
@@ -104,6 +120,7 @@ fn render_pngs(_ir_json: &str, _output_target: &str) -> PyResult<()> {
 }
 
 #[pyfunction]
+/// Placeholder API for PPTX rendering while the renderer is not yet implemented.
 fn render_pptx(_ir_json: &str, _output_target: &str) -> PyResult<()> {
     Err(PyNotImplementedError::new_err(
         "PPTX rendering is not implemented yet. This scaffold only provides API placeholders.",
@@ -111,6 +128,7 @@ fn render_pptx(_ir_json: &str, _output_target: &str) -> PyResult<()> {
 }
 
 #[pymodule]
+/// Registers the Python module exports provided by this Rust extension.
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(validate, m)?)?;
     m.add_function(wrap_pyfunction!(describe_schema, m)?)?;
