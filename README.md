@@ -11,9 +11,11 @@ This repository currently contains:
 ## Prerequisites
 
 Before building locally, install:
-- Python 3.9+ (3.12 currently used in CI/dev examples)
+- Python 3.9-3.12 (current pinned support range)
 - Rust toolchain (`rustup`, including `cargo`)
 - `pip`
+
+> **Python 3.13 note:** this project currently pins to `<3.13` because the current PyO3 version in use does not yet support Python 3.13 in this scaffold. You do **not** need to downgrade your system Python; use a dedicated virtual environment (or `pyenv`) with Python 3.12 for local development.
 
 ## Step-by-step: build and test
 
