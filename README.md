@@ -35,7 +35,7 @@ python -m pip install --upgrade pip
 ### 3) Install development tools
 
 ```bash
-python -m pip install maturin pytest
+python -m pip install -r requirements-dev.txt
 ```
 
 ### 4) Run Rust unit tests
