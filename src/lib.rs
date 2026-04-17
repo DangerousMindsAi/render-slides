@@ -74,7 +74,7 @@ fn render_pptx(_ir_json: &str, _output_target: &str) -> PyResult<()> {
 }
 
 #[pymodule]
-fn _core(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(validate, m)?)?;
     m.add_function(wrap_pyfunction!(describe_schema, m)?)?;
     m.add_function(wrap_pyfunction!(render_pngs, m)?)?;
