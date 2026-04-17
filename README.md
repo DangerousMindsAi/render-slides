@@ -79,3 +79,34 @@ python -m maturin develop
 ```
 
 This requires an active virtual environment.
+
+## PR workflow (to avoid unexpected merge conflicts)
+
+If you are opening multiple PRs in sequence, use a **new branch per PR** from updated `main`.
+
+### Recommended flow
+
+```bash
+# 1) Ensure local main includes latest merged work
+git checkout main
+git pull --ff-only origin main
+
+# 2) Create a fresh branch for the next PR
+git checkout -b feature/<short-topic>
+
+# 3) Make changes, commit, push, open PR
+git add .
+git commit -m "Your change"
+git push -u origin feature/<short-topic>
+```
+
+### If you already made changes on an older branch
+
+Rebase that branch onto latest `main` before opening/updating the PR:
+
+```bash
+git fetch origin
+git rebase origin/main
+```
+
+If conflicts still appear, it usually means the PR branch still contains commits from an already-merged PR (or a different base branch). In that case, create a fresh branch from `origin/main` and cherry-pick only the new commit(s).
