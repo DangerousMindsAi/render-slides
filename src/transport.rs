@@ -123,6 +123,7 @@ struct HttpWriteBuffer {
     client: Client,
     uri: String,
     buffer: Cursor<Vec<u8>>,
+    uploaded: bool,
 }
 
 impl HttpWriteBuffer {
@@ -131,6 +132,7 @@ impl HttpWriteBuffer {
             client,
             uri,
             buffer: Cursor::new(Vec::new()),
+            uploaded: false,
         }
     }
 
@@ -173,13 +175,23 @@ impl Write for HttpWriteBuffer {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
+        if self.uploaded {
+            return Ok(());
+        }
+
+        self.flush_http()
+            .map_err(|err| std::io::Error::other(err.to_string()))?;
+        self.uploaded = true;
+
         Ok(())
     }
 }
 
 impl Drop for HttpWriteBuffer {
     fn drop(&mut self) {
-        let _ = self.flush_http();
+        if !self.uploaded {
+            let _ = self.flush();
+        }
     }
 }
 
@@ -307,6 +319,38 @@ mod tests {
         } else {
             panic!("expected unsupported scheme error");
         }
+    }
+
+    #[test]
+    fn http_write_surfaces_non_success_status() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("addr");
+
+        thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().expect("accept");
+                let mut req_buf = [0_u8; 1024];
+                let _ = stream.read(&mut req_buf);
+
+                let response = "HTTP/1.1 500 Internal Server Error
+Content-Length: 0
+Connection: close
+
+";
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write response");
+            }
+        });
+
+        let router = TransportRouter::new();
+        let mut writer = router
+            .open_write(&format!("http://{addr}"))
+            .expect("open http write");
+
+        writer.write_all(b"payload").expect("buffer write");
+        let err = writer.flush().expect_err("expected flush failure");
+        assert!(err.to_string().contains("HTTP PUT/POST"));
     }
 
     #[test]

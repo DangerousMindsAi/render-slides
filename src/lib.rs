@@ -89,6 +89,10 @@ fn copy_source_to_sink(source_uri: &str, sink_uri: &str) -> PyResult<()> {
             .map_err(|e| PyValueError::new_err(format!("Write error: {e}")))?;
     }
 
+    writer
+        .flush()
+        .map_err(|e| PyValueError::new_err(format!("Flush error: {e}")))?;
+
     Ok(())
 }
 
