@@ -6,7 +6,12 @@
 
 This repository currently contains:
 - an implementation plan in `docs/implementation-plan.md`
-- a project scaffold for Python + Rust packaging via `maturin`
+- Python + Rust (`maturin`/`pyo3`) project scaffolding
+- initial IR validation and schema summary APIs (`validate`, `describe_schema`)
+- transport layer scaffolding for local files + HTTP(S) URIs
+- a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
+- Rust and Python test coverage for validation and transport behaviors
+- a one-command build/test script at `scripts/test-python-build.sh`
 
 ## Prerequisites
 
@@ -68,6 +73,17 @@ pytest -q
 python -c "import render_slides; print(render_slides.describe_schema())"
 python -c "print(__import__('render_slides').validate('{\"slides\": []}'))"
 ```
+
+
+## One-command Python build + test
+
+If you just want to rebuild the extension and run Python tests, use:
+
+```bash
+./scripts/test-python-build.sh
+```
+
+This script will create `.venv` if needed, install dev dependencies, build a fresh wheel with `maturin`, install it, and run `pytest -q`.
 
 ## Optional: fast edit/build loop
 
