@@ -171,6 +171,13 @@ impl HttpWriteBuffer {
 
 impl Write for HttpWriteBuffer {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if self.uploaded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "HTTP sink is already finalized; cannot write after flush",
+            ));
+        }
+
         self.buffer.write(buf)
     }
 
@@ -332,11 +339,7 @@ mod tests {
                 let mut req_buf = [0_u8; 1024];
                 let _ = stream.read(&mut req_buf);
 
-                let response = "HTTP/1.1 500 Internal Server Error
-Content-Length: 0
-Connection: close
-
-";
+                let response = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
                 stream
                     .write_all(response.as_bytes())
                     .expect("write response");
@@ -351,6 +354,36 @@ Connection: close
         writer.write_all(b"payload").expect("buffer write");
         let err = writer.flush().expect_err("expected flush failure");
         assert!(err.to_string().contains("HTTP PUT/POST"));
+    }
+
+    #[test]
+    fn http_write_rejects_writes_after_flush() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("addr");
+
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut req_buf = [0_u8; 1024];
+            let _ = stream.read(&mut req_buf);
+
+            let response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            stream
+                .write_all(response.as_bytes())
+                .expect("write response");
+        });
+
+        let router = TransportRouter::new();
+        let mut writer = router
+            .open_write(&format!("http://{addr}"))
+            .expect("open http write");
+
+        writer.write_all(b"payload").expect("buffer write");
+        writer.flush().expect("flush");
+
+        let err = writer
+            .write_all(b"extra")
+            .expect_err("writes after flush should fail");
+        assert_eq!(err.kind(), std::io::ErrorKind::BrokenPipe);
     }
 
     #[test]
