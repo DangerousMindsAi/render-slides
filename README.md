@@ -12,6 +12,7 @@ This repository currently contains:
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
 - Rust and Python test coverage for validation and transport behaviors
 - a one-command build/test script at `scripts/test-python-build.sh`
+- a one-command Rustdoc generation script at `scripts/generate-docs.sh`
 
 ## Prerequisites
 
@@ -94,3 +95,17 @@ python -m maturin develop
 ```
 
 This requires an active virtual environment.
+
+## Generate Rust documentation
+
+To generate project Rustdocs (including private items), run:
+
+```bash
+./scripts/generate-docs.sh
+```
+
+The generated docs entry point will be:
+
+```text
+target/doc/render_slides/index.html
+```

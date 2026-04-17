@@ -1,3 +1,12 @@
+//! Transport adapters for reading and writing bytes through URI-like targets.
+//!
+//! The router currently supports:
+//! - local filesystem paths and `file://` URIs via [`LocalAdapter`], and
+//! - `http://` / `https://` endpoints via [`HttpAdapter`].
+//!
+//! The APIs are intentionally stream-oriented so callers can process payloads
+//! without loading all source data in memory at once.
+
 use reqwest::blocking::{Client, Response};
 use reqwest::header::CONTENT_TYPE;
 use std::fmt;
@@ -7,18 +16,28 @@ use std::path::PathBuf;
 use url::Url;
 
 #[derive(Debug)]
+/// Error type returned by transport adapters and routing helpers.
 pub enum TransportError {
+    /// URI parsing or path conversion failed.
     InvalidUri(String),
+    /// URI scheme is not supported by the current router configuration.
     UnsupportedScheme(String),
+    /// Local filesystem I/O failed.
     Io(std::io::Error),
+    /// HTTP client request failed before receiving a successful response.
     Http(reqwest::Error),
+    /// HTTP request returned a non-success status code.
     HttpStatus {
+        /// HTTP method (or method strategy) attempted.
         method: &'static str,
+        /// Destination URI.
         uri: String,
+        /// Returned status code.
         status: u16,
     },
 }
 
+/// Converts transport errors into user-facing error messages.
 impl fmt::Display for TransportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -40,29 +59,37 @@ impl fmt::Display for TransportError {
 impl std::error::Error for TransportError {}
 
 impl From<std::io::Error> for TransportError {
+    /// Wraps a standard I/O error in the transport error type.
     fn from(value: std::io::Error) -> Self {
         Self::Io(value)
     }
 }
 
 impl From<reqwest::Error> for TransportError {
+    /// Wraps an HTTP client error in the transport error type.
     fn from(value: reqwest::Error) -> Self {
         Self::Http(value)
     }
 }
 
+/// Opens byte streams for reading from a URI-like source.
 pub trait Source {
+    /// Opens a readable stream for the given URI.
     fn open_read(&self, uri: &str) -> Result<Box<dyn Read + Send>, TransportError>;
 }
 
+/// Opens byte streams for writing to a URI-like sink.
 pub trait Sink {
+    /// Opens a writable stream for the given URI.
     fn open_write(&self, uri: &str) -> Result<Box<dyn Write + Send>, TransportError>;
 }
 
 #[derive(Clone, Default)]
+/// Local filesystem transport adapter.
 pub struct LocalAdapter;
 
 impl Source for LocalAdapter {
+    /// Opens a local file for reading from either a raw path or file:// URI.
     fn open_read(&self, uri: &str) -> Result<Box<dyn Read + Send>, TransportError> {
         let path = resolve_local_path(uri)?;
         Ok(Box::new(File::open(path)?))
@@ -70,6 +97,7 @@ impl Source for LocalAdapter {
 }
 
 impl Sink for LocalAdapter {
+    /// Creates or truncates a local file for writing at the resolved path.
     fn open_write(&self, uri: &str) -> Result<Box<dyn Write + Send>, TransportError> {
         let path = resolve_local_path(uri)?;
         Ok(Box::new(File::create(path)?))
@@ -77,11 +105,13 @@ impl Sink for LocalAdapter {
 }
 
 #[derive(Clone)]
+/// Blocking HTTP transport adapter used for GET/PUT/POST operations.
 pub struct HttpAdapter {
     client: Client,
 }
 
 impl HttpAdapter {
+    /// Creates an HTTP adapter with an explicit no-proxy client configuration.
     pub fn new() -> Self {
         Self {
             client: Client::builder().no_proxy().build().expect("http client"),
@@ -90,12 +120,14 @@ impl HttpAdapter {
 }
 
 impl Default for HttpAdapter {
+    /// Builds the default HTTP adapter.
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl Source for HttpAdapter {
+    /// Performs an HTTP GET and returns the response body as a readable stream.
     fn open_read(&self, uri: &str) -> Result<Box<dyn Read + Send>, TransportError> {
         let response = self.client.get(uri).send()?;
         if !response.status().is_success() {
@@ -111,6 +143,7 @@ impl Source for HttpAdapter {
 }
 
 impl Sink for HttpAdapter {
+    /// Returns a buffered writer that uploads data to the target URI on flush.
     fn open_write(&self, uri: &str) -> Result<Box<dyn Write + Send>, TransportError> {
         Ok(Box::new(HttpWriteBuffer::new(
             self.client.clone(),
@@ -127,6 +160,7 @@ struct HttpWriteBuffer {
 }
 
 impl HttpWriteBuffer {
+    /// Creates a buffered HTTP sink that uploads on first flush.
     fn new(client: Client, uri: String) -> Self {
         Self {
             client,
@@ -136,6 +170,7 @@ impl HttpWriteBuffer {
         }
     }
 
+    /// Uploads buffered bytes via PUT first, then falls back to POST.
     fn flush_http(&self) -> Result<Response, TransportError> {
         let body = self.buffer.get_ref().clone();
 
@@ -170,6 +205,7 @@ impl HttpWriteBuffer {
 }
 
 impl Write for HttpWriteBuffer {
+    /// Appends bytes to the in-memory upload buffer before finalization.
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if self.uploaded {
             return Err(std::io::Error::new(
@@ -181,6 +217,7 @@ impl Write for HttpWriteBuffer {
         self.buffer.write(buf)
     }
 
+    /// Finalizes the sink by uploading buffered content exactly once.
     fn flush(&mut self) -> std::io::Result<()> {
         if self.uploaded {
             return Ok(());
@@ -195,6 +232,7 @@ impl Write for HttpWriteBuffer {
 }
 
 impl Drop for HttpWriteBuffer {
+    /// Attempts a best-effort upload if the buffer is dropped before flushing.
     fn drop(&mut self) {
         if !self.uploaded {
             let _ = self.flush();
@@ -203,12 +241,14 @@ impl Drop for HttpWriteBuffer {
 }
 
 #[derive(Default, Clone)]
+/// Routes transport operations to local or HTTP adapters based on URI scheme.
 pub struct TransportRouter {
     local: LocalAdapter,
     http: HttpAdapter,
 }
 
 impl TransportRouter {
+    /// Builds a router with local filesystem and HTTP adapters.
     pub fn new() -> Self {
         Self {
             local: LocalAdapter,
@@ -216,6 +256,7 @@ impl TransportRouter {
         }
     }
 
+    /// Opens a readable stream based on URI scheme dispatch.
     pub fn open_read(&self, uri: &str) -> Result<Box<dyn Read + Send>, TransportError> {
         let scheme = scheme(uri)?;
 
@@ -226,6 +267,7 @@ impl TransportRouter {
         }
     }
 
+    /// Opens a writable stream based on URI scheme dispatch.
     pub fn open_write(&self, uri: &str) -> Result<Box<dyn Write + Send>, TransportError> {
         let scheme = scheme(uri)?;
 
@@ -237,6 +279,7 @@ impl TransportRouter {
     }
 }
 
+/// Determines the scheme for a URI or returns empty for local paths.
 fn scheme(uri: &str) -> Result<String, TransportError> {
     if uri.contains("://") {
         let parsed = Url::parse(uri).map_err(|_| TransportError::InvalidUri(uri.to_string()))?;
@@ -246,6 +289,7 @@ fn scheme(uri: &str) -> Result<String, TransportError> {
     Ok("".to_string())
 }
 
+/// Resolves a local filesystem path from a raw path or file:// URI.
 fn resolve_local_path(uri_or_path: &str) -> Result<PathBuf, TransportError> {
     if uri_or_path.starts_with("file://") {
         let parsed = Url::parse(uri_or_path)
