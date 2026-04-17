@@ -69,6 +69,17 @@ python -c "import render_slides; print(render_slides.describe_schema())"
 python -c "print(__import__('render_slides').validate('{\"slides\": []}'))"
 ```
 
+
+## One-command Python build + test
+
+If you just want to rebuild the extension and run Python tests, use:
+
+```bash
+./scripts/test-python-build.sh
+```
+
+This script will create `.venv` if needed, install dev dependencies, build a fresh wheel with `maturin`, install it, and run `pytest -q`.
+
 ## Optional: fast edit/build loop
 
 If you prefer an in-place development install, run:
