@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/render-slides/ir-v1.schema.json",
+  "title": "render-slides IR v1",
+  "type": "object",
+  "required": ["slides"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["layout", "slots"],
+        "properties": {
+          "layout": {
+            "type": "string",
+            "enum": [
+              "title",
+              "title_body",
+              "two_column",
+              "section",
+              "image_focus",
+              "quote",
+              "comparison"
+            ]
+          },
+          "slots": {
+            "type": "object",
+            "additionalProperties": {
+              "type": ["string", "number", "boolean", "object", "array", "null"]
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
