@@ -8,7 +8,7 @@ This repository currently contains:
 - an implementation plan in `docs/implementation-plan.md`
 - Python + Rust (`maturin`/`pyo3`) project scaffolding
 - initial IR validation and schema summary APIs (`validate`, `describe_schema`)
-- transport layer scaffolding for local files + HTTP(S) URIs
+- transport layer scaffolding for local files, HTTP(S), and AWS S3 URIs
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
 - Rust and Python test coverage for validation and transport behaviors
 - a one-command build/test script at `scripts/test-python-build.sh`

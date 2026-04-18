@@ -78,8 +78,28 @@ def test_copy_source_to_sink_http_sink_failure_raises(tmp_path):
 
 def test_copy_source_to_sink_rejects_unknown_scheme():
     with pytest.raises(ValueError) as exc_info:
-        render_slides.copy_source_to_sink("s3://bucket/a.txt", "file:///tmp/out.txt")
+        render_slides.copy_source_to_sink("ftp://example.com/a.txt", "file:///tmp/out.txt")
     assert "Unsupported URI scheme" in str(exc_info.value)
+
+
+def test_copy_source_to_sink_rejects_invalid_s3_uri_without_key(tmp_path):
+    source = tmp_path / "source.txt"
+    source.write_text("transport-data", encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.copy_source_to_sink(str(source), "s3://bucket-only")
+
+    assert "Invalid URI or path" in str(exc_info.value)
+
+
+def test_copy_source_to_sink_rejects_s3_path_traversal(tmp_path):
+    source = tmp_path / "source.txt"
+    source.write_text("transport-data", encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.copy_source_to_sink(str(source), "s3://bucket/../../outside.txt")
+
+    assert "Invalid URI or path" in str(exc_info.value)
 
 
 def test_render_pngs_placeholder_raises_not_implemented():

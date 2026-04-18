@@ -1,19 +1,20 @@
 //! Transport adapters for reading and writing bytes through URI-like targets.
 //!
 //! The router currently supports:
-//! - local filesystem paths and `file://` URIs via [`LocalAdapter`], and
-//! - `http://` / `https://` endpoints via [`HttpAdapter`].
-//!
-//! The APIs are intentionally stream-oriented so callers can process payloads
-//! without loading all source data in memory at once.
+//! - local filesystem paths and `file://` URIs via [`LocalAdapter`],
+//! - `http://` / `https://` endpoints via [`HttpAdapter`], and
+//! - `s3://bucket/key` objects via [`S3Adapter`].
 
 use reqwest::blocking::{Client, Response};
 use reqwest::header::CONTENT_TYPE;
 use std::fmt;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Cursor, Read, Write};
+use std::path::Component;
 use std::path::PathBuf;
 use url::Url;
+
+const S3_ROOT_ENV: &str = "RENDER_SLIDES_S3_ROOT";
 
 #[derive(Debug)]
 /// Error type returned by transport adapters and routing helpers.
@@ -240,19 +241,74 @@ impl Drop for HttpWriteBuffer {
     }
 }
 
-#[derive(Default, Clone)]
-/// Routes transport operations to local or HTTP adapters based on URI scheme.
+#[derive(Clone)]
+/// `s3://bucket/key` adapter backed by a configurable local object-store root.
+///
+/// This adapter is intentionally local-file-backed scaffolding for now. It
+/// resolves S3 URIs to `{root}/{bucket}/{key}` and performs filesystem I/O.
+pub struct S3Adapter {
+    root: PathBuf,
+}
+
+impl S3Adapter {
+    /// Creates an S3 adapter using `RENDER_SLIDES_S3_ROOT` when set.
+    ///
+    /// Falls back to `.render_slides_s3` under the current working directory.
+    pub fn new() -> Self {
+        let root = std::env::var_os(S3_ROOT_ENV)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(".render_slides_s3"));
+        Self { root }
+    }
+
+    /// Resolves an S3 URI into its local backing path.
+    fn resolve_path(&self, uri: &str) -> Result<PathBuf, TransportError> {
+        let (bucket, key) = parse_s3_uri(uri)?;
+        Ok(self.root.join(bucket).join(key))
+    }
+}
+
+impl Default for S3Adapter {
+    /// Builds the default S3 adapter.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Source for S3Adapter {
+    /// Opens a local backing file for reading from an S3 URI.
+    fn open_read(&self, uri: &str) -> Result<Box<dyn Read + Send>, TransportError> {
+        let path = self.resolve_path(uri)?;
+        Ok(Box::new(File::open(path)?))
+    }
+}
+
+impl Sink for S3Adapter {
+    /// Opens a local backing file for writing to an S3 URI, creating parents.
+    fn open_write(&self, uri: &str) -> Result<Box<dyn Write + Send>, TransportError> {
+        let path = self.resolve_path(uri)?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        Ok(Box::new(File::create(path)?))
+    }
+}
+
+#[derive(Clone, Default)]
+/// Routes transport operations to local, HTTP, or S3 adapters by URI scheme.
 pub struct TransportRouter {
     local: LocalAdapter,
     http: HttpAdapter,
+    s3: S3Adapter,
 }
 
 impl TransportRouter {
-    /// Builds a router with local filesystem and HTTP adapters.
+    /// Builds a router with local filesystem, HTTP(S), and S3 adapters.
     pub fn new() -> Self {
         Self {
             local: LocalAdapter,
             http: HttpAdapter::new(),
+            s3: S3Adapter::new(),
         }
     }
 
@@ -263,6 +319,7 @@ impl TransportRouter {
         match scheme.as_str() {
             "file" | "" => self.local.open_read(uri),
             "http" | "https" => self.http.open_read(uri),
+            "s3" => self.s3.open_read(uri),
             _ => Err(TransportError::UnsupportedScheme(scheme)),
         }
     }
@@ -274,6 +331,7 @@ impl TransportRouter {
         match scheme.as_str() {
             "file" | "" => self.local.open_write(uri),
             "http" | "https" => self.http.open_write(uri),
+            "s3" => self.s3.open_write(uri),
             _ => Err(TransportError::UnsupportedScheme(scheme)),
         }
     }
@@ -301,6 +359,64 @@ fn resolve_local_path(uri_or_path: &str) -> Result<PathBuf, TransportError> {
     }
 
     Ok(PathBuf::from(uri_or_path))
+}
+
+/// Parses `s3://bucket/key` URIs into bucket and key components.
+fn parse_s3_uri(uri: &str) -> Result<(String, String), TransportError> {
+    let parsed = Url::parse(uri).map_err(|_| TransportError::InvalidUri(uri.to_string()))?;
+    if parsed.scheme() != "s3" {
+        return Err(TransportError::UnsupportedScheme(
+            parsed.scheme().to_string(),
+        ));
+    }
+
+    let bucket = parsed
+        .host_str()
+        .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
+
+    let uri_without_scheme = uri
+        .strip_prefix("s3://")
+        .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
+    let (_, remainder) = uri_without_scheme
+        .split_once('/')
+        .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
+    let key = remainder
+        .split(['?', '#'])
+        .next()
+        .unwrap_or_default()
+        .trim_start_matches('/');
+
+    if key.is_empty() {
+        return Err(TransportError::InvalidUri(uri.to_string()));
+    }
+
+    let mut normalized_segments = Vec::new();
+    if key.contains('\\') {
+        return Err(TransportError::InvalidUri(uri.to_string()));
+    }
+
+    for component in PathBuf::from(key).components() {
+        match component {
+            Component::Normal(segment) => {
+                let as_str = segment
+                    .to_str()
+                    .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
+                normalized_segments.push(as_str.to_string());
+            }
+            Component::CurDir
+            | Component::ParentDir
+            | Component::RootDir
+            | Component::Prefix(_) => {
+                return Err(TransportError::InvalidUri(uri.to_string()));
+            }
+        }
+    }
+
+    if normalized_segments.is_empty() {
+        return Err(TransportError::InvalidUri(uri.to_string()));
+    }
+
+    Ok((bucket.to_string(), normalized_segments.join("/")))
 }
 
 #[cfg(test)]
@@ -356,20 +472,40 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unknown_scheme() {
+    fn s3_uri_parsing_extracts_bucket_and_key() {
+        let (bucket, key) = parse_s3_uri("s3://slides-bucket/path/to/deck.json").expect("s3 uri");
+        assert_eq!(bucket, "slides-bucket");
+        assert_eq!(key, "path/to/deck.json");
+    }
+
+    #[test]
+    fn s3_roundtrip_uses_configured_local_root() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        std::env::set_var(S3_ROOT_ENV, temp_dir.path());
+
         let router = TransportRouter::new();
-        let result = router.open_read("s3://bucket/key");
-
-        let error = match result {
-            Err(error) => error,
-            Ok(_) => panic!("expected unsupported scheme error"),
-        };
-
-        if let TransportError::UnsupportedScheme(scheme) = error {
-            assert_eq!(scheme, "s3");
-        } else {
-            panic!("expected unsupported scheme error");
+        {
+            let mut writer = router
+                .open_write("s3://slides-bucket/path/data.bin")
+                .expect("s3 write");
+            writer.write_all(b"payload").expect("write");
         }
+
+        let mut read_back = String::new();
+        router
+            .open_read("s3://slides-bucket/path/data.bin")
+            .expect("s3 read")
+            .read_to_string(&mut read_back)
+            .expect("read");
+
+        std::env::remove_var(S3_ROOT_ENV);
+        assert_eq!(read_back, "payload");
+    }
+
+    #[test]
+    fn s3_uri_rejects_parent_dir_traversal() {
+        let err = parse_s3_uri("s3://slides-bucket/../../outside.txt").expect_err("invalid uri");
+        assert!(matches!(err, TransportError::InvalidUri(_)));
     }
 
     #[test]
