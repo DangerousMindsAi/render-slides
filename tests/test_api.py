@@ -92,6 +92,16 @@ def test_copy_source_to_sink_rejects_invalid_s3_uri_without_key(tmp_path):
     assert "Invalid URI or path" in str(exc_info.value)
 
 
+def test_copy_source_to_sink_rejects_s3_path_traversal(tmp_path):
+    source = tmp_path / "source.txt"
+    source.write_text("transport-data", encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.copy_source_to_sink(str(source), "s3://bucket/../../outside.txt")
+
+    assert "Invalid URI or path" in str(exc_info.value)
+
+
 def test_render_pngs_placeholder_raises_not_implemented():
     with pytest.raises(NotImplementedError):
         render_slides.render_pngs('{"slides": []}', "file:///tmp/slides")

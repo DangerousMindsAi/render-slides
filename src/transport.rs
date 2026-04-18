@@ -10,6 +10,7 @@ use reqwest::header::CONTENT_TYPE;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{Cursor, Read, Write};
+use std::path::Component;
 use std::path::PathBuf;
 use url::Url;
 
@@ -373,12 +374,49 @@ fn parse_s3_uri(uri: &str) -> Result<(String, String), TransportError> {
         .host_str()
         .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
 
-    let key = parsed.path().trim_start_matches('/');
+    let uri_without_scheme = uri
+        .strip_prefix("s3://")
+        .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
+    let (_, remainder) = uri_without_scheme
+        .split_once('/')
+        .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
+    let key = remainder
+        .split(['?', '#'])
+        .next()
+        .unwrap_or_default()
+        .trim_start_matches('/');
+
     if key.is_empty() {
         return Err(TransportError::InvalidUri(uri.to_string()));
     }
 
-    Ok((bucket.to_string(), key.to_string()))
+    let mut normalized_segments = Vec::new();
+    if key.contains('\\') {
+        return Err(TransportError::InvalidUri(uri.to_string()));
+    }
+
+    for component in PathBuf::from(key).components() {
+        match component {
+            Component::Normal(segment) => {
+                let as_str = segment
+                    .to_str()
+                    .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
+                normalized_segments.push(as_str.to_string());
+            }
+            Component::CurDir
+            | Component::ParentDir
+            | Component::RootDir
+            | Component::Prefix(_) => {
+                return Err(TransportError::InvalidUri(uri.to_string()));
+            }
+        }
+    }
+
+    if normalized_segments.is_empty() {
+        return Err(TransportError::InvalidUri(uri.to_string()));
+    }
+
+    Ok((bucket.to_string(), normalized_segments.join("/")))
 }
 
 #[cfg(test)]
@@ -462,6 +500,12 @@ mod tests {
 
         std::env::remove_var(S3_ROOT_ENV);
         assert_eq!(read_back, "payload");
+    }
+
+    #[test]
+    fn s3_uri_rejects_parent_dir_traversal() {
+        let err = parse_s3_uri("s3://slides-bucket/../../outside.txt").expect_err("invalid uri");
+        assert!(matches!(err, TransportError::InvalidUri(_)));
     }
 
     #[test]
