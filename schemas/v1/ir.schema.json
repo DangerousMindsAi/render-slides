@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://render-slides.dev/schemas/v1/ir.schema.json",
+  "title": "RenderSlidesIR",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["slides"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "author": { "type": "string" },
+        "theme_id": { "type": "string" },
+        "slide_size": {
+          "type": "string",
+          "enum": ["standard_4_3", "widescreen_16_9", "custom"]
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "refinement_config": {
+      "$ref": "#/$defs/refinementConfig"
+    },
+    "slides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/slide" }
+    }
+  },
+  "$defs": {
+    "slide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "slots"],
+      "properties": {
+        "layout": {
+          "type": "string",
+          "enum": [
+            "title",
+            "title_body",
+            "two_column",
+            "section",
+            "image_focus",
+            "quote",
+            "comparison"
+          ]
+        },
+        "slots": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "title",
+              "subtitle",
+              "body",
+              "left",
+              "right",
+              "image",
+              "caption",
+              "quote",
+              "attribution"
+            ]
+          },
+          "additionalProperties": {
+            "type": ["string", "array"],
+            "items": { "type": "string" }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "refinementConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/refinementPath" },
+          "minItems": 1
+        },
+        "aliases": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/refinementAlias"
+          }
+        }
+      }
+    },
+    "refinementPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "type", "operations"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "enum"]
+        },
+        "operations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operation" },
+          "minItems": 1
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "increase",
+            "decrease",
+            "set_alignment",
+            "set_text",
+            "set_layout"
+          ]
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "allowed_values": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "refinementAlias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "path"],
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "increase",
+            "decrease",
+            "set_alignment",
+            "set_text",
+            "set_layout"
+          ]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

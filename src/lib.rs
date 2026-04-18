@@ -10,7 +10,9 @@
 //! `NotImplementedError` until rendering backends are integrated.
 
 use std::collections::BTreeSet;
+use std::sync::LazyLock;
 
+use jsonschema::{error::ValidationErrorKind, Draft, Validator};
 use pyo3::exceptions::{PyNotImplementedError, PyValueError};
 use pyo3::prelude::*;
 use serde::Serialize;
@@ -22,6 +24,16 @@ mod generated {
     include!(concat!(env!("OUT_DIR"), "/template_manifest.rs"));
 }
 
+const IR_SCHEMA_JSON: &str = include_str!("../schemas/v1/ir.schema.json");
+
+static IR_VALIDATOR: LazyLock<Result<Validator, String>> = LazyLock::new(|| {
+    let schema: Value = serde_json::from_str(IR_SCHEMA_JSON)
+        .map_err(|err| format!("Schema compile error: invalid JSON schema: {err}"))?;
+    jsonschema::options()
+        .with_draft(Draft::Draft202012)
+        .build(&schema)
+        .map_err(|err| format!("Schema compile error: {err}"))
+});
 
 #[derive(Serialize)]
 struct SchemaSummary {
@@ -84,18 +96,35 @@ fn operation_specs_for(path: &str) -> Option<Vec<OperationSpec>> {
 
 /// Validates the minimal contract for a render-slides IR payload.
 fn validate_ir(parsed: &Value) -> Result<(), String> {
-    if parsed.get("slides").is_none() {
-        return Err(
-            "ValidationError: missing required field at $.slides; expected an array of slide objects."
-                .to_string(),
-        );
-    }
-
-    if !parsed.get("slides").is_some_and(|v| v.is_array()) {
-        return Err("ValidationError: field $.slides must be an array.".to_string());
+    let validator = IR_VALIDATOR.as_ref().map_err(ToString::to_string)?;
+    let mut errors = validator.iter_errors(parsed);
+    if let Some(first) = errors.next() {
+        return Err(format_validation_error(first));
     }
 
     Ok(())
+}
+
+fn format_validation_error(error: jsonschema::ValidationError<'_>) -> String {
+    let instance_path = error.instance_path().to_string();
+    let path = if instance_path.is_empty() {
+        "$".to_string()
+    } else {
+        format!("$.{instance_path}")
+    };
+
+    let hint = match error.kind() {
+        ValidationErrorKind::Required { property } => {
+            format!("missing required field '{property}'")
+        }
+        ValidationErrorKind::Type { kind } => format!("expected type {kind:?}"),
+        ValidationErrorKind::Enum { .. } => {
+            "value must be one of the allowed enum values".to_string()
+        }
+        _ => error.to_string(),
+    };
+
+    format!("ValidationError: {hint} at {path}.")
 }
 
 /// Builds a small, human-readable summary of the supported schema surface.
@@ -329,14 +358,16 @@ mod tests {
     fn validate_ir_rejects_missing_slides() {
         let parsed = json!({ "meta": { "title": "x" } });
         let err = validate_ir(&parsed).expect_err("expected missing-slides validation error");
-        assert!(err.contains("$.slides"));
+        assert!(err.contains("ValidationError"));
+        assert!(err.contains("missing required field"));
     }
 
     #[test]
     fn validate_ir_rejects_non_array_slides() {
         let parsed = json!({ "slides": {} });
         let err = validate_ir(&parsed).expect_err("expected non-array slides validation error");
-        assert!(err.contains("must be an array"));
+        assert!(err.contains("ValidationError"));
+        assert!(err.contains("expected type"));
     }
 
     #[test]

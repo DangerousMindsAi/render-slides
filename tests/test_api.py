@@ -14,13 +14,58 @@ def test_validate_accepts_minimal_ir():
 def test_validate_rejects_missing_slides():
     with pytest.raises(ValueError) as exc_info:
         render_slides.validate('{"meta": {"title": "deck"}}')
-    assert "$.slides" in str(exc_info.value)
+    assert "missing required field" in str(exc_info.value)
 
 
 def test_validate_rejects_invalid_json():
     with pytest.raises(ValueError) as exc_info:
         render_slides.validate('{"slides": [}')
     assert "Invalid JSON" in str(exc_info.value)
+
+
+def test_validate_accepts_refinement_config_schema():
+    ir = {
+        "slides": [{"layout": "title_body", "slots": {"title": "Hello", "body": "World"}}],
+        "refinement_config": {
+            "paths": [
+                {
+                    "path": "slides[*].style.body.font_size",
+                    "type": "number",
+                    "operations": [{"name": "increase", "step": 1}],
+                }
+            ],
+            "aliases": {
+                "smaller": {
+                    "op": "decrease",
+                    "path": "slides[*].style.body.font_size",
+                    "params": {"step": 1},
+                }
+            },
+        },
+    }
+
+    assert render_slides.validate(json.dumps(ir)) == "ok"
+
+
+def test_validate_rejects_invalid_refinement_operation_name():
+    ir = {
+        "slides": [{"layout": "title_body", "slots": {"title": "Hello"}}],
+        "refinement_config": {
+            "paths": [
+                {
+                    "path": "slides[*].style.body.font_size",
+                    "type": "number",
+                    "operations": [{"name": "bump"}],
+                }
+            ]
+        },
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.validate(json.dumps(ir))
+
+    assert "ValidationError" in str(exc_info.value)
+    assert "operations" in str(exc_info.value)
 
 
 def test_describe_schema_contains_expected_keys():
