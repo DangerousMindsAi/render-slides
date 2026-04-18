@@ -110,3 +110,48 @@ def test_render_pngs_placeholder_raises_not_implemented():
 def test_render_pptx_placeholder_raises_not_implemented():
     with pytest.raises(NotImplementedError):
         render_slides.render_pptx('{"slides": []}', "file:///tmp/deck.pptx")
+
+
+def test_list_paths_supports_wildcards_by_default():
+    paths = json.loads(render_slides.list_paths())
+    assert "slides[*].slots.title" in paths
+
+
+def test_list_paths_supports_slide_specific_addressing():
+    paths = json.loads(render_slides.list_paths(2))
+    assert "slides[2].slots.body" in paths
+
+
+def test_list_operations_returns_specs_for_known_path():
+    operations = json.loads(render_slides.list_operations("slides[*].style.body.font_size"))
+    names = {item["name"] for item in operations}
+    assert "increase" in names
+    assert "decrease" in names
+
+
+def test_list_operations_rejects_unknown_path():
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.list_operations("slides[*].slots.unknown")
+
+    assert "Unsupported editable path" in str(exc_info.value)
+
+
+def test_explain_operation_returns_structured_metadata():
+    details = json.loads(
+        render_slides.explain_operation("slides[*].style.alignment", "set_alignment")
+    )
+    assert details["operation"] == "set_alignment"
+    assert details["path"] == "slides[*].style.alignment"
+
+
+def test_get_examples_returns_example_payloads():
+    examples = json.loads(render_slides.get_examples("slides[*].slots.title", "set_text"))
+    assert examples
+    assert "request" in examples[0]
+
+
+def test_get_examples_rejects_unsupported_operation():
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.get_examples("slides[*].slots.title", "increase")
+
+    assert "Unsupported operation" in str(exc_info.value)
