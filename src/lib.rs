@@ -9,12 +9,19 @@
 //! Rendering entry points are intentionally scaffolded and return
 //! `NotImplementedError` until rendering backends are integrated.
 
+use std::collections::BTreeSet;
+
 use pyo3::exceptions::{PyNotImplementedError, PyValueError};
 use pyo3::prelude::*;
 use serde::Serialize;
 use serde_json::Value;
 
 pub mod transport;
+
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/template_manifest.rs"));
+}
+
 
 #[derive(Serialize)]
 struct SchemaSummary {
@@ -46,60 +53,33 @@ struct OperationExample {
     effect: &'static str,
 }
 
+fn all_editable_paths() -> Vec<&'static str> {
+    let mut unique = BTreeSet::new();
+    unique.extend(generated::TEMPLATE_EDITABLE_PATHS.iter().copied());
+    unique.into_iter().collect()
+}
+
 fn supports_path(path: &str) -> bool {
-    matches!(
-        path,
-        "slides[*].layout"
-            | "slides[*].slots.title"
-            | "slides[*].slots.subtitle"
-            | "slides[*].slots.body"
-            | "slides[*].slots.left"
-            | "slides[*].slots.right"
-            | "slides[*].style.alignment"
-            | "slides[*].style.body.font_size"
-    )
+    all_editable_paths().contains(&path)
 }
 
 fn operation_specs_for(path: &str) -> Option<Vec<OperationSpec>> {
-    match path {
-        "slides[*].layout" => Some(vec![OperationSpec {
-            name: "set_layout",
-            description: "Sets the slide layout enum value.",
-            params: vec!["layout"],
-            bounds: "layout must be one of title, title_body, two_column, section, image_focus, quote, comparison",
-        }]),
-        "slides[*].slots.title"
-        | "slides[*].slots.subtitle"
-        | "slides[*].slots.body"
-        | "slides[*].slots.left"
-        | "slides[*].slots.right" => Some(vec![OperationSpec {
-            name: "set_text",
-            description: "Replaces text content for the selected slot.",
-            params: vec!["text"],
-            bounds: "text length must be <= 2000 characters",
-        }]),
-        "slides[*].style.alignment" => Some(vec![OperationSpec {
-            name: "set_alignment",
-            description: "Sets text alignment for the addressed style scope.",
-            params: vec!["alignment"],
-            bounds: "alignment must be one of left, center, right",
-        }]),
-        "slides[*].style.body.font_size" => Some(vec![
-            OperationSpec {
-                name: "increase",
-                description: "Increases font size by the requested step.",
-                params: vec!["step"],
-                bounds: "step must be an integer between 1 and 6; resulting size 10..72",
-            },
-            OperationSpec {
-                name: "decrease",
-                description: "Decreases font size by the requested step.",
-                params: vec!["step"],
-                bounds: "step must be an integer between 1 and 6; resulting size 10..72",
-            },
-        ]),
-        _ => None,
+    let from_template: Vec<_> = generated::TEMPLATE_OPERATION_SPECS
+        .iter()
+        .filter(|entry| entry.path == path)
+        .map(|entry| OperationSpec {
+            name: entry.name,
+            description: entry.description,
+            params: entry.params.to_vec(),
+            bounds: entry.bounds,
+        })
+        .collect();
+
+    if from_template.is_empty() {
+        return None;
     }
+
+    Some(from_template)
 }
 
 /// Validates the minimal contract for a render-slides IR payload.
@@ -158,16 +138,10 @@ fn describe_schema() -> PyResult<String> {
 #[pyfunction(signature = (slide_id=None))]
 /// Lists editable IR paths for refinement operations.
 fn list_paths(slide_id: Option<usize>) -> PyResult<String> {
-    let mut paths = vec![
-        "slides[*].layout".to_string(),
-        "slides[*].slots.title".to_string(),
-        "slides[*].slots.subtitle".to_string(),
-        "slides[*].slots.body".to_string(),
-        "slides[*].slots.left".to_string(),
-        "slides[*].slots.right".to_string(),
-        "slides[*].style.alignment".to_string(),
-        "slides[*].style.body.font_size".to_string(),
-    ];
+    let mut paths: Vec<String> = all_editable_paths()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect();
 
     if let Some(id) = slide_id {
         paths = paths
@@ -379,6 +353,13 @@ mod tests {
             .expect("operations should exist for font-size path");
         assert!(operations.iter().any(|op| op.name == "increase"));
         assert!(operations.iter().any(|op| op.name == "decrease"));
+    }
+
+    #[test]
+    fn template_manifest_operations_are_available() {
+        let operations = operation_specs_for("slides[*].slots.title")
+            .expect("template-generated operation should be available");
+        assert!(operations.iter().any(|op| op.name == "set_text"));
     }
 
     #[test]
