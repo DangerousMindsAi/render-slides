@@ -31,7 +31,9 @@ fn generate_template_manifest() -> Result<(), String> {
 
     let mut layout_entries: BTreeMap<String, TemplateFrontMatter> = BTreeMap::new();
 
-    for entry in fs::read_dir(manifest_dir).map_err(|e| format!("failed to read templates directory: {e}"))? {
+    for entry in fs::read_dir(manifest_dir)
+        .map_err(|e| format!("failed to read templates directory: {e}"))?
+    {
         let entry = entry.map_err(|e| format!("failed to read template entry: {e}"))?;
         let path = entry.path();
         if path.extension().and_then(|ext| ext.to_str()) != Some("jinja") {
@@ -64,7 +66,8 @@ fn generate_template_manifest() -> Result<(), String> {
         return Err("no templates found under templates/layouts".to_string());
     }
 
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").map_err(|e| format!("OUT_DIR unavailable: {e}"))?);
+    let out_dir =
+        PathBuf::from(std::env::var("OUT_DIR").map_err(|e| format!("OUT_DIR unavailable: {e}"))?);
     let output = out_dir.join("template_manifest.rs");
     fs::write(&output, emit_manifest_module(&layout_entries))
         .map_err(|e| format!("failed to write {}: {e}", output.display()))?;
@@ -81,9 +84,12 @@ fn split_front_matter<'a>(raw: &'a str, path: &Path) -> Result<(&'a str, &'a str
     }
 
     let rest = &raw[4..];
-    let boundary = rest
-        .find("\n---\n")
-        .ok_or_else(|| format!("missing closing YAML front matter delimiter in {}", path.display()))?;
+    let boundary = rest.find("\n---\n").ok_or_else(|| {
+        format!(
+            "missing closing YAML front matter delimiter in {}",
+            path.display()
+        )
+    })?;
 
     let front_matter = &rest[..boundary];
     let body = &rest[boundary + 5..];
@@ -91,18 +97,19 @@ fn split_front_matter<'a>(raw: &'a str, path: &Path) -> Result<(&'a str, &'a str
     Ok((front_matter, body))
 }
 
-fn validate_template(parsed: &TemplateFrontMatter, template_body: &str, path: &Path) -> Result<(), String> {
+fn validate_template(
+    parsed: &TemplateFrontMatter,
+    template_body: &str,
+    path: &Path,
+) -> Result<(), String> {
     let mut slot_markers = BTreeSet::new();
     let needle = "data-slot=\"";
     let mut cursor = template_body;
     while let Some(start_idx) = cursor.find(needle) {
         let after = &cursor[start_idx + needle.len()..];
-        let end_idx = after.find('"').ok_or_else(|| {
-            format!(
-                "unterminated data-slot marker found in {}",
-                path.display()
-            )
-        })?;
+        let end_idx = after
+            .find('"')
+            .ok_or_else(|| format!("unterminated data-slot marker found in {}", path.display()))?;
         let slot = &after[..end_idx];
         slot_markers.insert(slot.to_string());
         cursor = &after[end_idx + 1..];
@@ -148,10 +155,7 @@ fn validate_template(parsed: &TemplateFrontMatter, template_body: &str, path: &P
         ));
     }
 
-    let missing_in_metadata: Vec<_> = slot_markers
-        .difference(&metadata_slots)
-        .cloned()
-        .collect();
+    let missing_in_metadata: Vec<_> = slot_markers.difference(&metadata_slots).cloned().collect();
     if !missing_in_metadata.is_empty() {
         return Err(format!(
             "data-slot markers without metadata in {}: {}",
@@ -160,10 +164,7 @@ fn validate_template(parsed: &TemplateFrontMatter, template_body: &str, path: &P
         ));
     }
 
-    let missing_in_template: Vec<_> = metadata_slots
-        .difference(&slot_markers)
-        .cloned()
-        .collect();
+    let missing_in_template: Vec<_> = metadata_slots.difference(&slot_markers).cloned().collect();
     if !missing_in_template.is_empty() {
         return Err(format!(
             "metadata slots without data-slot markers in {}: {}",
@@ -214,8 +215,14 @@ fn emit_manifest_module(layout_entries: &BTreeMap<String, TemplateFrontMatter>) 
     output.push_str("pub const TEMPLATE_OPERATION_SPECS: &[TemplateOperationSpec] = &[\n");
     for (path, name, description, params, bounds) in operations {
         output.push_str("    TemplateOperationSpec {\n");
-        output.push_str(&format!("        path: \"{}\",\n", escape_rust_string(&path)));
-        output.push_str(&format!("        name: \"{}\",\n", escape_rust_string(&name)));
+        output.push_str(&format!(
+            "        path: \"{}\",\n",
+            escape_rust_string(&path)
+        ));
+        output.push_str(&format!(
+            "        name: \"{}\",\n",
+            escape_rust_string(&name)
+        ));
         output.push_str(&format!(
             "        description: \"{}\",\n",
             escape_rust_string(&description)
