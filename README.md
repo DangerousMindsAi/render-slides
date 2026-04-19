@@ -9,11 +9,11 @@ This repository currently contains:
 - Python + Rust (`maturin`/`pyo3`) project scaffolding
 - initial IR validation, schema summary, and introspection APIs (`validate`, `describe_schema`, `list_paths`, `list_operations`, `explain_operation`, `get_examples`)
 - compile-time template manifest generation from `.slide.jinja` files with YAML front matter
-- migrated layout templates for `title_body` and `quote` with metadata-derived refinement paths
+- migrated layout templates for `title`, `title_body`, `two_column`, and `quote` with metadata-derived refinement paths
 - JSON Schema definition for the v1 IR (including `refinement_config` paths/operations/aliases) at `schemas/v1/ir.schema.json`
 - transport layer scaffolding for local files, HTTP(S), and AWS S3 URIs
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
-- Rust and Python test coverage for validation and transport behaviors
+- Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
 - a one-command Rustdoc generation script at `scripts/generate-docs.sh`
 
@@ -115,6 +115,6 @@ target/doc/render_slides/index.html
 
 ## Next steps
 
-- Continue incremental layout migration to template-backed manifests (`title`, `two_column`, `section`, `image_focus`, `comparison`).
-- Add snapshot-oriented tests for generated template manifest content and introspection surface stability.
+- Continue incremental layout migration to template-backed manifests (`section`, `image_focus`, `comparison`).
+- Expand snapshot-oriented tests from paths to full operation-spec surface (path + op + params + bounds) to lock introspection contracts.
 - Begin wiring template body usage into upcoming HTML/PNG rendering path while preserving deterministic output.

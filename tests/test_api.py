@@ -215,8 +215,21 @@ def test_list_paths_includes_quote_template_slots():
     assert "slides[*].slots.attribution" in paths
 
 
+def test_list_paths_includes_title_and_two_column_template_slots():
+    paths = json.loads(render_slides.list_paths())
+    assert "slides[*].slots.subtitle" in paths
+    assert "slides[*].slots.left" in paths
+    assert "slides[*].slots.right" in paths
+
+
 def test_list_operations_supports_quote_slot_set_text():
     operations = json.loads(render_slides.list_operations("slides[*].slots.quote"))
+    names = {item["name"] for item in operations}
+    assert names == {"set_text"}
+
+
+def test_list_operations_supports_title_subtitle_slot_set_text():
+    operations = json.loads(render_slides.list_operations("slides[*].slots.subtitle"))
     names = {item["name"] for item in operations}
     assert names == {"set_text"}
 
