@@ -234,6 +234,19 @@ def test_list_operations_supports_title_subtitle_slot_set_text():
     assert names == {"set_text"}
 
 
+def test_list_paths_includes_section_and_image_focus_slots():
+    paths = json.loads(render_slides.list_paths())
+    assert "slides[*].slots.image" in paths
+    assert "slides[*].slots.caption" in paths
+
+
+def test_list_operations_supports_image_focus_and_section_slot_set_text():
+    image_ops = json.loads(render_slides.list_operations("slides[*].slots.image"))
+    caption_ops = json.loads(render_slides.list_operations("slides[*].slots.caption"))
+    assert {item["name"] for item in image_ops} == {"set_text"}
+    assert {item["name"] for item in caption_ops} == {"set_text"}
+
+
 def test_list_operations_rejects_unknown_path():
     with pytest.raises(ValueError) as exc_info:
         render_slides.list_operations("slides[*].slots.unknown")

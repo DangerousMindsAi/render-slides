@@ -408,6 +408,8 @@ mod tests {
                 "slides[*].layout",
                 "slides[*].slots.attribution",
                 "slides[*].slots.body",
+                "slides[*].slots.caption",
+                "slides[*].slots.image",
                 "slides[*].slots.left",
                 "slides[*].slots.quote",
                 "slides[*].slots.right",

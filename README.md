@@ -9,7 +9,7 @@ This repository currently contains:
 - Python + Rust (`maturin`/`pyo3`) project scaffolding
 - initial IR validation, schema summary, and introspection APIs (`validate`, `describe_schema`, `list_paths`, `list_operations`, `explain_operation`, `get_examples`)
 - compile-time template manifest generation from `.slide.jinja` files with YAML front matter
-- migrated layout templates for `title`, `title_body`, `two_column`, and `quote` with metadata-derived refinement paths
+- migrated layout templates for `title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, and `comparison` with metadata-derived refinement paths
 - JSON Schema definition for the v1 IR (including `refinement_config` paths/operations/aliases) at `schemas/v1/ir.schema.json`
 - transport layer scaffolding for local files, HTTP(S), and AWS S3 URIs
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
@@ -115,6 +115,12 @@ target/doc/render_slides/index.html
 
 ## Next steps
 
-- Continue incremental layout migration to template-backed manifests (`section`, `image_focus`, `comparison`).
 - Expand snapshot-oriented tests from paths to full operation-spec surface (path + op + params + bounds) to lock introspection contracts.
 - Begin wiring template body usage into upcoming HTML/PNG rendering path while preserving deterministic output.
+- Add layout-aware semantic validation to enforce required slot sets per layout before render-time.
+
+## Implementation plan status
+
+- ✅ Template manifest migration now covers the full v1 layout set (`title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, `comparison`).
+- ✅ Introspection path coverage now includes `section` and `image_focus` slot paths via tests.
+- ⏭️ Next: implement operation-spec snapshot testing and start consuming template bodies in the renderer pipeline.
