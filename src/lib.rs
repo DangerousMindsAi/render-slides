@@ -394,6 +394,13 @@ mod tests {
     }
 
     #[test]
+    fn quote_layout_template_operations_are_available() {
+        let operations = operation_specs_for("slides[*].slots.quote")
+            .expect("quote slot operation should be available");
+        assert!(operations.iter().any(|op| op.name == "set_text"));
+    }
+
+    #[test]
     fn operation_specs_missing_for_unknown_path() {
         assert!(operation_specs_for("slides[*].slots.unknown").is_none());
     }
