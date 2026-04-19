@@ -8,6 +8,8 @@ This repository currently contains:
 - an implementation plan in `docs/implementation-plan.md`
 - Python + Rust (`maturin`/`pyo3`) project scaffolding
 - initial IR validation, schema summary, and introspection APIs (`validate`, `describe_schema`, `list_paths`, `list_operations`, `explain_operation`, `get_examples`)
+- compile-time template manifest generation from `.slide.jinja` files with YAML front matter
+- migrated layout templates for `title_body` and `quote` with metadata-derived refinement paths
 - JSON Schema definition for the v1 IR (including `refinement_config` paths/operations/aliases) at `schemas/v1/ir.schema.json`
 - transport layer scaffolding for local files, HTTP(S), and AWS S3 URIs
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
@@ -110,3 +112,9 @@ The generated docs entry point will be:
 ```text
 target/doc/render_slides/index.html
 ```
+
+## Next steps
+
+- Continue incremental layout migration to template-backed manifests (`title`, `two_column`, `section`, `image_focus`, `comparison`).
+- Add snapshot-oriented tests for generated template manifest content and introspection surface stability.
+- Begin wiring template body usage into upcoming HTML/PNG rendering path while preserving deterministic output.

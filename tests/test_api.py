@@ -209,6 +209,18 @@ def test_list_operations_returns_specs_for_known_path():
     assert "decrease" in names
 
 
+def test_list_paths_includes_quote_template_slots():
+    paths = json.loads(render_slides.list_paths())
+    assert "slides[*].slots.quote" in paths
+    assert "slides[*].slots.attribution" in paths
+
+
+def test_list_operations_supports_quote_slot_set_text():
+    operations = json.loads(render_slides.list_operations("slides[*].slots.quote"))
+    names = {item["name"] for item in operations}
+    assert names == {"set_text"}
+
+
 def test_list_operations_rejects_unknown_path():
     with pytest.raises(ValueError) as exc_info:
         render_slides.list_operations("slides[*].slots.unknown")
