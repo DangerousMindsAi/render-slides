@@ -1,0 +1,18 @@
+---
+layout: section
+editable_paths:
+  - path: slides[*].slots.title
+    operation: set_text
+    description: Replaces text content for the selected slot.
+    params: [text]
+    bounds: text length must be <= 2000 characters
+  - path: slides[*].slots.subtitle
+    operation: set_text
+    description: Replaces text content for the selected slot.
+    params: [text]
+    bounds: text length must be <= 2000 characters
+---
+<section class="slide layout-section" data-layout="section">
+  <h1 data-slot="title">{{ slide.slots.title }}</h1>
+  <p data-slot="subtitle">{{ slide.slots.subtitle }}</p>
+</section>

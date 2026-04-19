@@ -311,3 +311,20 @@
 5. Implement ILM data structures and conversion from IR.
 6. Build introspection endpoints (`list_paths`, `list_operations`, `get_examples`, `suggest_changes`).
 7. Implement one layout (`title_body`) in both emitters and add first snapshot/introspection golden tests.
+
+
+## 13) Implementation Status and Immediate Next Steps
+
+### Status Update (April 19, 2026)
+- ✅ Project scaffolding in place for Python + Rust (`maturin` + `pyo3`).
+- ✅ JSON Schema validation and refinement/introspection APIs are implemented and tested.
+- ✅ Template manifest generation is active at build time.
+- ✅ Layout templates now cover the full v1 set: `title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, `comparison`.
+- ✅ Transport router scaffolding (local, HTTP(S), S3-style URI mapping) is implemented with tests.
+- ⏳ Rendering backends (`render_pngs`, `render_pptx`) remain placeholders.
+
+### Immediate Next Steps
+1. Add snapshot-style tests for operation specs (path + op + params + bounds) to lock introspection contracts.
+2. Introduce layout-aware semantic validation for required slot combinations per layout.
+3. Start ILM/template-body wiring for deterministic HTML generation in the PNG path.
+4. Define first golden test fixtures for renderer parity work once HTML emission exists.
