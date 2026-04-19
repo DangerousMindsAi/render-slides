@@ -401,6 +401,25 @@ mod tests {
     }
 
     #[test]
+    fn template_manifest_paths_snapshot_is_stable() {
+        assert_eq!(
+            all_editable_paths(),
+            vec![
+                "slides[*].layout",
+                "slides[*].slots.attribution",
+                "slides[*].slots.body",
+                "slides[*].slots.left",
+                "slides[*].slots.quote",
+                "slides[*].slots.right",
+                "slides[*].slots.subtitle",
+                "slides[*].slots.title",
+                "slides[*].style.alignment",
+                "slides[*].style.body.font_size",
+            ]
+        );
+    }
+
+    #[test]
     fn operation_specs_missing_for_unknown_path() {
         assert!(operation_specs_for("slides[*].slots.unknown").is_none());
     }
