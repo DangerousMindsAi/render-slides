@@ -69,6 +69,27 @@
             "items": { "type": "string" }
           }
         },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "alignment": {
+              "type": "string",
+              "enum": ["left", "center", "right"]
+            },
+            "body": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "font_size": {
+                  "type": "integer",
+                  "minimum": 10,
+                  "maximum": 72
+                }
+              }
+            }
+          }
+        },
         "notes": { "type": "string" }
       }
     },

@@ -68,6 +68,41 @@ def test_validate_rejects_invalid_refinement_operation_name():
     assert "operations" in str(exc_info.value)
 
 
+def test_validate_accepts_slide_style_fields_used_by_refinement_paths():
+    ir = {
+        "slides": [
+            {
+                "layout": "title_body",
+                "slots": {"title": "Hello", "body": "World"},
+                "style": {
+                    "alignment": "left",
+                    "body": {"font_size": 24},
+                },
+            }
+        ]
+    }
+
+    assert render_slides.validate(json.dumps(ir)) == "ok"
+
+
+def test_validate_rejects_invalid_style_alignment_value():
+    ir = {
+        "slides": [
+            {
+                "layout": "title_body",
+                "slots": {"title": "Hello"},
+                "style": {"alignment": "justify"},
+            }
+        ]
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.validate(json.dumps(ir))
+
+    assert "ValidationError" in str(exc_info.value)
+    assert "allowed enum values" in str(exc_info.value)
+
+
 def test_describe_schema_contains_expected_keys():
     schema = json.loads(render_slides.describe_schema())
     assert schema["version"] == "0.1"
