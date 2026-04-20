@@ -47,6 +47,23 @@ def test_validate_accepts_refinement_config_schema():
     assert render_slides.validate(json.dumps(ir)) == "ok"
 
 
+def test_validate_accepts_large_refinement_step_without_static_maximum():
+    ir = {
+        "slides": [{"layout": "title_body", "slots": {"title": "Hello"}}],
+        "refinement_config": {
+            "paths": [
+                {
+                    "path": "slides[*].style.body.font_size",
+                    "type": "number",
+                    "operations": [{"name": "increase", "step": 42}],
+                }
+            ]
+        },
+    }
+
+    assert render_slides.validate(json.dumps(ir)) == "ok"
+
+
 def test_validate_rejects_invalid_refinement_operation_name():
     ir = {
         "slides": [{"layout": "title_body", "slots": {"title": "Hello"}}],
@@ -245,6 +262,113 @@ def test_list_operations_supports_image_focus_and_section_slot_set_text():
     caption_ops = json.loads(render_slides.list_operations("slides[*].slots.caption"))
     assert {item["name"] for item in image_ops} == {"set_text"}
     assert {item["name"] for item in caption_ops} == {"set_text"}
+
+
+def test_operation_specs_snapshot_matches_template_manifest_contract():
+    paths = json.loads(render_slides.list_paths())
+
+    snapshot = set()
+    for path in paths:
+        for op in json.loads(render_slides.list_operations(path)):
+            snapshot.add(
+                (
+                    path,
+                    op["name"],
+                    tuple(op["params"]),
+                    op["bounds"],
+                )
+            )
+
+    normalized_snapshot = [
+        {
+            "path": path,
+            "name": name,
+            "params": list(params),
+            "bounds": bounds,
+        }
+        for path, name, params, bounds in sorted(snapshot)
+    ]
+
+    assert normalized_snapshot == [
+        {
+            "path": "slides[*].layout",
+            "name": "set_layout",
+            "params": ["layout"],
+            "bounds": "layout must be one of title, title_body, two_column, section, image_focus, quote, comparison",
+        },
+        {
+            "path": "slides[*].slots.attribution",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].slots.body",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].slots.caption",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].slots.image",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].slots.left",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].slots.quote",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].slots.right",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].slots.subtitle",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].slots.title",
+            "name": "set_text",
+            "params": ["text"],
+            "bounds": "text length must be <= 2000 characters",
+        },
+        {
+            "path": "slides[*].style.alignment",
+            "name": "set_alignment",
+            "params": ["alignment"],
+            "bounds": "alignment must be one of left, center, right",
+        },
+        {
+            "path": "slides[*].style.body.font_size",
+            "name": "decrease",
+            "params": ["step"],
+            "bounds": "step must be a positive integer; resulting size 10..72",
+        },
+        {
+            "path": "slides[*].style.body.font_size",
+            "name": "increase",
+            "params": ["step"],
+            "bounds": "step must be a positive integer; resulting size 10..72",
+        },
+    ]
 
 
 def test_list_operations_rejects_unknown_path():
