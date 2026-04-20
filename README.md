@@ -115,12 +115,13 @@ target/doc/render_slides/index.html
 
 ## Next steps
 
-- Expand snapshot-oriented tests from paths to full operation-spec surface (path + op + params + bounds) to lock introspection contracts.
-- Begin wiring template body usage into upcoming HTML/PNG rendering path while preserving deterministic output.
 - Add layout-aware semantic validation to enforce required slot sets per layout before render-time.
+- Begin wiring template body usage into upcoming HTML/PNG rendering path while preserving deterministic output.
+- Define first golden renderer fixtures for parity baselining once deterministic HTML emission is available.
 
 ## Implementation plan status
 
 - ✅ Template manifest migration now covers the full v1 layout set (`title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, `comparison`).
 - ✅ Introspection path coverage now includes `section` and `image_focus` slot paths via tests.
-- ⏭️ Next: implement operation-spec snapshot testing and start consuming template bodies in the renderer pipeline.
+- ✅ Operation-spec snapshot testing now locks path + operation + params + bounds contracts for introspection.
+- ⏭️ Next: add layout-aware semantic validation, then start consuming template bodies in the renderer pipeline.

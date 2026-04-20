@@ -30,12 +30,12 @@ editable_paths:
     operation: increase
     description: Increases font size by the requested step.
     params: [step]
-    bounds: step must be an integer between 1 and 6; resulting size 10..72
+    bounds: step must be a positive integer; resulting size 10..72
   - path: slides[*].style.body.font_size
     operation: decrease
     description: Decreases font size by the requested step.
     params: [step]
-    bounds: step must be an integer between 1 and 6; resulting size 10..72
+    bounds: step must be a positive integer; resulting size 10..72
 ---
 <section class="slide layout-refinement-controls" data-layout="refinement_controls">
   <div data-slot="subtitle">{{ slide.slots.subtitle }}</div>

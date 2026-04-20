@@ -321,10 +321,11 @@
 - ✅ Template manifest generation is active at build time.
 - ✅ Layout templates now cover the full v1 set: `title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, `comparison`.
 - ✅ Transport router scaffolding (local, HTTP(S), S3-style URI mapping) is implemented with tests.
+- ✅ Operation-spec snapshot coverage now locks path + op + params + bounds for the introspection surface.
 - ⏳ Rendering backends (`render_pngs`, `render_pptx`) remain placeholders.
 
 ### Immediate Next Steps
-1. Add snapshot-style tests for operation specs (path + op + params + bounds) to lock introspection contracts.
-2. Introduce layout-aware semantic validation for required slot combinations per layout.
-3. Start ILM/template-body wiring for deterministic HTML generation in the PNG path.
-4. Define first golden test fixtures for renderer parity work once HTML emission exists.
+1. Introduce layout-aware semantic validation for required slot combinations per layout.
+2. Start ILM/template-body wiring for deterministic HTML generation in the PNG path.
+3. Define first golden test fixtures for renderer parity work once HTML emission exists.
+4. Add initial parity-harness plumbing so HTML/PNG and PPTX outputs can be diffed from shared fixtures.
