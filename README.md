@@ -115,13 +115,14 @@ target/doc/render_slides/index.html
 
 ## Next steps
 
-- Add layout-aware semantic validation to enforce required slot sets per layout before render-time.
 - Begin wiring template body usage into upcoming HTML/PNG rendering path while preserving deterministic output.
 - Define first golden renderer fixtures for parity baselining once deterministic HTML emission is available.
+- Add initial parity-harness plumbing so HTML/PNG and PPTX outputs can be diffed from shared fixtures.
 
 ## Implementation plan status
 
 - ✅ Template manifest migration now covers the full v1 layout set (`title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, `comparison`).
 - ✅ Introspection path coverage now includes `section` and `image_focus` slot paths via tests.
 - ✅ Operation-spec snapshot testing now locks path + operation + params + bounds contracts for introspection.
-- ⏭️ Next: add layout-aware semantic validation, then start consuming template bodies in the renderer pipeline.
+- ✅ Layout-aware semantic validation now enforces required slot combinations per layout before render-time.
+- ⏭️ Next: start consuming template bodies in the renderer pipeline, then add first renderer parity fixtures/harness plumbing.

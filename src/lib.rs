@@ -102,6 +102,45 @@ fn validate_ir(parsed: &Value) -> Result<(), String> {
         return Err(format_validation_error(first));
     }
 
+    validate_layout_required_slots(parsed)?;
+
+    Ok(())
+}
+
+fn validate_layout_required_slots(parsed: &Value) -> Result<(), String> {
+    let Some(slides) = parsed.get("slides").and_then(Value::as_array) else {
+        return Ok(());
+    };
+
+    for (index, slide) in slides.iter().enumerate() {
+        let Some(layout) = slide.get("layout").and_then(Value::as_str) else {
+            continue;
+        };
+
+        let required_slots: &[&str] = match layout {
+            "title" => &["title", "subtitle"],
+            "title_body" => &["title", "body"],
+            "two_column" => &["title", "left", "right"],
+            "section" => &["title", "subtitle"],
+            "image_focus" => &["title", "image", "caption"],
+            "quote" => &["quote", "attribution"],
+            "comparison" => &["title", "left", "right"],
+            _ => continue,
+        };
+
+        let Some(slots) = slide.get("slots").and_then(Value::as_object) else {
+            continue;
+        };
+
+        for required_slot in required_slots {
+            if !slots.contains_key(*required_slot) {
+                return Err(format!(
+                    "ValidationError: missing required slot '{required_slot}' for layout '{layout}' at $.slides[{index}].slots."
+                ));
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -424,5 +463,37 @@ mod tests {
     #[test]
     fn operation_specs_missing_for_unknown_path() {
         assert!(operation_specs_for("slides[*].slots.unknown").is_none());
+    }
+
+    #[test]
+    fn validate_ir_rejects_missing_required_slot_for_layout() {
+        let parsed = json!({
+            "slides": [{
+                "layout": "title_body",
+                "slots": {
+                    "title": "Missing body slot"
+                }
+            }]
+        });
+
+        let err = validate_ir(&parsed).expect_err("expected required-slot validation error");
+        assert!(err.contains("missing required slot 'body'"));
+        assert!(err.contains("$.slides[0].slots"));
+    }
+
+    #[test]
+    fn validate_ir_accepts_required_slots_for_layout() {
+        let parsed = json!({
+            "slides": [{
+                "layout": "comparison",
+                "slots": {
+                    "title": "Tradeoffs",
+                    "left": "Pros",
+                    "right": "Cons"
+                }
+            }]
+        });
+
+        assert!(validate_ir(&parsed).is_ok());
     }
 }
