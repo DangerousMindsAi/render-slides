@@ -49,7 +49,7 @@ def test_validate_accepts_refinement_config_schema():
 
 def test_validate_accepts_large_refinement_step_without_static_maximum():
     ir = {
-        "slides": [{"layout": "title_body", "slots": {"title": "Hello"}}],
+        "slides": [{"layout": "title_body", "slots": {"title": "Hello", "body": "World"}}],
         "refinement_config": {
             "paths": [
                 {
@@ -118,6 +118,26 @@ def test_validate_rejects_invalid_style_alignment_value():
 
     assert "ValidationError" in str(exc_info.value)
     assert "allowed enum values" in str(exc_info.value)
+
+
+def test_validate_rejects_missing_layout_required_slot():
+    ir = {
+        "slides": [
+            {
+                "layout": "image_focus",
+                "slots": {
+                    "title": "Launch Preview",
+                    "image": "https://example.com/image.png",
+                },
+            }
+        ]
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        render_slides.validate(json.dumps(ir))
+
+    assert "missing required slot 'caption'" in str(exc_info.value)
+    assert "$.slides[0].slots" in str(exc_info.value)
 
 
 def test_describe_schema_contains_expected_keys():

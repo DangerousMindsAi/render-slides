@@ -315,17 +315,18 @@
 
 ## 13) Implementation Status and Immediate Next Steps
 
-### Status Update (April 19, 2026)
+### Status Update (April 20, 2026)
 - ✅ Project scaffolding in place for Python + Rust (`maturin` + `pyo3`).
 - ✅ JSON Schema validation and refinement/introspection APIs are implemented and tested.
 - ✅ Template manifest generation is active at build time.
 - ✅ Layout templates now cover the full v1 set: `title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, `comparison`.
 - ✅ Transport router scaffolding (local, HTTP(S), S3-style URI mapping) is implemented with tests.
 - ✅ Operation-spec snapshot coverage now locks path + op + params + bounds for the introspection surface.
+- ✅ Layout-aware semantic validation now enforces required slot sets for each v1 layout.
 - ⏳ Rendering backends (`render_pngs`, `render_pptx`) remain placeholders.
 
 ### Immediate Next Steps
-1. Introduce layout-aware semantic validation for required slot combinations per layout.
-2. Start ILM/template-body wiring for deterministic HTML generation in the PNG path.
-3. Define first golden test fixtures for renderer parity work once HTML emission exists.
-4. Add initial parity-harness plumbing so HTML/PNG and PPTX outputs can be diffed from shared fixtures.
+1. Start ILM/template-body wiring for deterministic HTML generation in the PNG path.
+2. Define first golden test fixtures for renderer parity work once HTML emission exists.
+3. Add initial parity-harness plumbing so HTML/PNG and PPTX outputs can be diffed from shared fixtures.
+4. Extend semantic validation with per-layout optional-slot guidance and richer corrective hints for agent retry loops.
