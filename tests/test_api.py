@@ -139,6 +139,10 @@ def test_validate_rejects_missing_layout_required_slot():
 
     assert "missing required slot 'caption'" in str(exc_info.value)
     assert "$.slides[0].slots" in str(exc_info.value)
+    assert 'expected_required=["title", "image", "caption"]' in str(exc_info.value)
+    assert 'optional=["subtitle"]' in str(exc_info.value)
+    assert 'provided=["image", "title"]' in str(exc_info.value)
+    assert 'suggested_fix="Add slots.caption as a string value."' in str(exc_info.value)
 
 
 def test_describe_schema_contains_expected_keys():
