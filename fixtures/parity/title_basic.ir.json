@@ -1,0 +1,11 @@
+{
+  "slides": [
+    {
+      "layout": "title",
+      "slots": {
+        "title": "Annual Plan 2026",
+        "subtitle": "Roadmap and priorities"
+      }
+    }
+  ]
+}

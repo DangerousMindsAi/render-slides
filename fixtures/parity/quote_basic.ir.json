@@ -1,0 +1,11 @@
+{
+  "slides": [
+    {
+      "layout": "quote",
+      "slots": {
+        "quote": "Quality is everyone’s responsibility.",
+        "attribution": "Engineering Playbook"
+      }
+    }
+  ]
+}

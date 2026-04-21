@@ -1,0 +1,12 @@
+{
+  "slides": [
+    {
+      "layout": "image_focus",
+      "slots": {
+        "title": "Product Preview",
+        "image": "https://example.com/preview.png",
+        "caption": "Updated analytics dashboard"
+      }
+    }
+  ]
+}
