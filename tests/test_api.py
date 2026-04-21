@@ -224,6 +224,22 @@ def test_copy_source_to_sink_rejects_s3_path_traversal(tmp_path):
     assert "Invalid URI or path" in str(exc_info.value)
 
 
+def test_register_source_and_sink_handler_aliases_enable_custom_schemes(tmp_path):
+    source = tmp_path / "source.txt"
+    destination = tmp_path / "destination.txt"
+    source.write_text("transport-data", encoding="utf-8")
+
+    render_slides.register_source_handler("customsrc", "file")
+    render_slides.register_sink_handler("customsink", "file")
+
+    render_slides.copy_source_to_sink(
+        f"customsrc://{source}",
+        f"customsink://{destination}",
+    )
+
+    assert destination.read_text(encoding="utf-8") == "transport-data"
+
+
 def test_render_html_preview_renders_template_output():
     ir = {
         "slides": [

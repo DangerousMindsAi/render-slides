@@ -408,7 +408,9 @@ fn default_theme_tokens() -> BTreeMap<&'static str, &'static str> {
     ])
 }
 
-fn resolve_theme_token_overrides(theme: Option<&serde_json::Map<String, Value>>) -> BTreeMap<String, String> {
+fn resolve_theme_token_overrides(
+    theme: Option<&serde_json::Map<String, Value>>,
+) -> BTreeMap<String, String> {
     let mut tokens: BTreeMap<String, String> = default_theme_tokens()
         .into_iter()
         .map(|(key, value)| (key.to_string(), value.to_string()))
@@ -538,57 +540,6 @@ fn render_preview_html_from_parsed(parsed: &Value) -> Result<String, String> {
     Ok(html)
 }
 
-fn build_single_slide_html_document(
-    slide: &Value,
-    theme: Option<&serde_json::Map<String, Value>>,
-    templates: &BTreeMap<&'static str, SlideTemplate>,
-    slide_index: usize,
-) -> Result<String, String> {
-    let layout = slide
-        .get("layout")
-        .and_then(Value::as_str)
-        .ok_or_else(|| format!("ValidationError: missing layout at $.slides[{slide_index}]."))?;
-    let template = templates
-        .get(layout)
-        .ok_or_else(|| format!("RenderError: no template registered for layout '{layout}'"))?;
-    let slot_values = slide
-        .get("slots")
-        .and_then(Value::as_object)
-        .ok_or_else(|| format!("ValidationError: missing slots at $.slides[{slide_index}].slots."))?;
-
-    let mut section = template.body.to_string();
-    for slot_name in &template.slot_names {
-        let slot_path = format!("{{{{ slide.slots.{slot_name} }}}}");
-        let slot_value = normalize_slot_text(slot_values.get(slot_name));
-        section = section.replace(&slot_path, &html_escape(&slot_value));
-    }
-
-    let mut html = String::new();
-    html.push_str("<!doctype html>\n<html>\n  <head>\n");
-    html.push_str(&render_theme_style_block(theme));
-    html.push_str("    <style>\n");
-    html.push_str("      html, body {\n");
-    html.push_str("        width: 1366px;\n");
-    html.push_str("        height: 768px;\n");
-    html.push_str("      }\n");
-    html.push_str("      body {\n");
-    html.push_str("        overflow: hidden;\n");
-    html.push_str("        box-sizing: border-box;\n");
-    html.push_str("      }\n");
-    html.push_str("      .slide {\n");
-    html.push_str("        width: 100%;\n");
-    html.push_str("        height: 100%;\n");
-    html.push_str("        box-sizing: border-box;\n");
-    html.push_str("      }\n");
-    html.push_str("    </style>\n");
-    html.push_str("  </head>\n  <body>\n");
-    html.push_str("    ");
-    html.push_str(&section);
-    html.push('\n');
-    html.push_str("  </body>\n</html>\n");
-    Ok(html)
-}
-
 fn parse_ir(ir_json: &str) -> Result<Value, String> {
     let parsed: Value = serde_json::from_str(ir_json).map_err(|e| format!("Invalid JSON: {e}"))?;
     validate_ir(&parsed)?;
@@ -617,7 +568,9 @@ fn slide_sink_uri(base_output_target: &str, filename: &str) -> Result<String, St
                     .map_err(|_| format!("Failed to build file URI for '{file_path:?}'"))
                     .map(|u| u.to_string())
             }
-            other => Err(format!("Unsupported output target scheme for PNG rendering: {other}")),
+            other => Err(format!(
+                "Unsupported output target scheme for PNG rendering: {other}"
+            )),
         },
         Err(_) => {
             let base_path = PathBuf::from(base_output_target);
@@ -635,7 +588,7 @@ fn rasterize_html_to_png_bytes(html: &str) -> Result<Vec<u8>, String> {
 }
 
 #[derive(Clone)]
-struct TextBoxSpec {
+struct IlmTextRun {
     x: i64,
     y: i64,
     cx: i64,
@@ -646,7 +599,7 @@ struct TextBoxSpec {
 }
 
 #[derive(Clone)]
-struct ImageSpec {
+struct IlmImage {
     x: i64,
     y: i64,
     cx: i64,
@@ -655,9 +608,9 @@ struct ImageSpec {
 }
 
 #[derive(Clone)]
-struct SlideSpec {
-    text_boxes: Vec<TextBoxSpec>,
-    image: Option<ImageSpec>,
+struct IlmSlide {
+    text_runs: Vec<IlmTextRun>,
+    image: Option<IlmImage>,
 }
 
 fn xml_escape(input: &str) -> String {
@@ -668,58 +621,165 @@ fn slot_text(slots: &serde_json::Map<String, Value>, name: &str) -> String {
     normalize_slot_text(slots.get(name))
 }
 
-fn slide_spec_from_ir(slide: &Value) -> Option<SlideSpec> {
+fn ilm_slide_from_ir(slide: &Value) -> Option<IlmSlide> {
     let layout = slide.get("layout")?.as_str()?;
     let slots = slide.get("slots")?.as_object()?;
     let emu = |px: i64| px * 9525;
 
     let spec = match layout {
-        "title" => SlideSpec {
-            text_boxes: vec![
-                TextBoxSpec { x: emu(96), y: emu(180), cx: emu(1174), cy: emu(180), text: slot_text(slots, "title"), font_size_pt: 44, bold: true },
-                TextBoxSpec { x: emu(96), y: emu(390), cx: emu(1174), cy: emu(140), text: slot_text(slots, "subtitle"), font_size_pt: 28, bold: false },
+        "title" => IlmSlide {
+            text_runs: vec![
+                IlmTextRun {
+                    x: emu(96),
+                    y: emu(180),
+                    cx: emu(1174),
+                    cy: emu(180),
+                    text: slot_text(slots, "title"),
+                    font_size_pt: 44,
+                    bold: true,
+                },
+                IlmTextRun {
+                    x: emu(96),
+                    y: emu(390),
+                    cx: emu(1174),
+                    cy: emu(140),
+                    text: slot_text(slots, "subtitle"),
+                    font_size_pt: 28,
+                    bold: false,
+                },
             ],
             image: None,
         },
-        "title_body" => SlideSpec {
-            text_boxes: vec![
-                TextBoxSpec { x: emu(96), y: emu(72), cx: emu(1174), cy: emu(120), text: slot_text(slots, "title"), font_size_pt: 40, bold: true },
-                TextBoxSpec { x: emu(96), y: emu(220), cx: emu(1174), cy: emu(430), text: slot_text(slots, "body"), font_size_pt: 24, bold: false },
+        "title_body" => IlmSlide {
+            text_runs: vec![
+                IlmTextRun {
+                    x: emu(96),
+                    y: emu(72),
+                    cx: emu(1174),
+                    cy: emu(120),
+                    text: slot_text(slots, "title"),
+                    font_size_pt: 40,
+                    bold: true,
+                },
+                IlmTextRun {
+                    x: emu(96),
+                    y: emu(220),
+                    cx: emu(1174),
+                    cy: emu(430),
+                    text: slot_text(slots, "body"),
+                    font_size_pt: 24,
+                    bold: false,
+                },
             ],
             image: None,
         },
-        "two_column" | "comparison" => SlideSpec {
-            text_boxes: vec![
-                TextBoxSpec { x: emu(96), y: emu(48), cx: emu(1174), cy: emu(110), text: slot_text(slots, "title"), font_size_pt: 36, bold: true },
-                TextBoxSpec { x: emu(96), y: emu(190), cx: emu(560), cy: emu(520), text: slot_text(slots, "left"), font_size_pt: 22, bold: false },
-                TextBoxSpec { x: emu(710), y: emu(190), cx: emu(560), cy: emu(520), text: slot_text(slots, "right"), font_size_pt: 22, bold: false },
+        "two_column" | "comparison" => IlmSlide {
+            text_runs: vec![
+                IlmTextRun {
+                    x: emu(96),
+                    y: emu(48),
+                    cx: emu(1174),
+                    cy: emu(110),
+                    text: slot_text(slots, "title"),
+                    font_size_pt: 36,
+                    bold: true,
+                },
+                IlmTextRun {
+                    x: emu(96),
+                    y: emu(190),
+                    cx: emu(560),
+                    cy: emu(520),
+                    text: slot_text(slots, "left"),
+                    font_size_pt: 22,
+                    bold: false,
+                },
+                IlmTextRun {
+                    x: emu(710),
+                    y: emu(190),
+                    cx: emu(560),
+                    cy: emu(520),
+                    text: slot_text(slots, "right"),
+                    font_size_pt: 22,
+                    bold: false,
+                },
             ],
             image: None,
         },
-        "section" => SlideSpec {
-            text_boxes: vec![
-                TextBoxSpec { x: emu(96), y: emu(240), cx: emu(1174), cy: emu(170), text: slot_text(slots, "title"), font_size_pt: 46, bold: true },
-                TextBoxSpec { x: emu(96), y: emu(430), cx: emu(1174), cy: emu(120), text: slot_text(slots, "subtitle"), font_size_pt: 24, bold: false },
+        "section" => IlmSlide {
+            text_runs: vec![
+                IlmTextRun {
+                    x: emu(96),
+                    y: emu(240),
+                    cx: emu(1174),
+                    cy: emu(170),
+                    text: slot_text(slots, "title"),
+                    font_size_pt: 46,
+                    bold: true,
+                },
+                IlmTextRun {
+                    x: emu(96),
+                    y: emu(430),
+                    cx: emu(1174),
+                    cy: emu(120),
+                    text: slot_text(slots, "subtitle"),
+                    font_size_pt: 24,
+                    bold: false,
+                },
             ],
             image: None,
         },
-        "image_focus" => SlideSpec {
-            text_boxes: vec![
-                TextBoxSpec { x: emu(72), y: emu(48), cx: emu(1220), cy: emu(90), text: slot_text(slots, "title"), font_size_pt: 32, bold: true },
-                TextBoxSpec { x: emu(72), y: emu(650), cx: emu(1220), cy: emu(80), text: slot_text(slots, "caption"), font_size_pt: 20, bold: false },
+        "image_focus" => IlmSlide {
+            text_runs: vec![
+                IlmTextRun {
+                    x: emu(72),
+                    y: emu(48),
+                    cx: emu(1220),
+                    cy: emu(90),
+                    text: slot_text(slots, "title"),
+                    font_size_pt: 32,
+                    bold: true,
+                },
+                IlmTextRun {
+                    x: emu(72),
+                    y: emu(650),
+                    cx: emu(1220),
+                    cy: emu(80),
+                    text: slot_text(slots, "caption"),
+                    font_size_pt: 20,
+                    bold: false,
+                },
             ],
-            image: slots.get("image").and_then(Value::as_str).map(|uri| ImageSpec {
-                x: emu(170),
-                y: emu(150),
-                cx: emu(1026),
-                cy: emu(470),
-                uri: uri.to_string(),
-            }),
+            image: slots
+                .get("image")
+                .and_then(Value::as_str)
+                .map(|uri| IlmImage {
+                    x: emu(170),
+                    y: emu(150),
+                    cx: emu(1026),
+                    cy: emu(470),
+                    uri: uri.to_string(),
+                }),
         },
-        "quote" => SlideSpec {
-            text_boxes: vec![
-                TextBoxSpec { x: emu(120), y: emu(180), cx: emu(1120), cy: emu(320), text: slot_text(slots, "quote"), font_size_pt: 34, bold: false },
-                TextBoxSpec { x: emu(120), y: emu(540), cx: emu(1120), cy: emu(90), text: format!("— {}", slot_text(slots, "attribution")), font_size_pt: 22, bold: true },
+        "quote" => IlmSlide {
+            text_runs: vec![
+                IlmTextRun {
+                    x: emu(120),
+                    y: emu(180),
+                    cx: emu(1120),
+                    cy: emu(320),
+                    text: slot_text(slots, "quote"),
+                    font_size_pt: 34,
+                    bold: false,
+                },
+                IlmTextRun {
+                    x: emu(120),
+                    y: emu(540),
+                    cx: emu(1120),
+                    cy: emu(90),
+                    text: format!("— {}", slot_text(slots, "attribution")),
+                    font_size_pt: 22,
+                    bold: true,
+                },
             ],
             image: None,
         },
@@ -728,12 +788,69 @@ fn slide_spec_from_ir(slide: &Value) -> Option<SlideSpec> {
     Some(spec)
 }
 
+fn resolve_ilm_slides(parsed: &Value) -> Result<Vec<IlmSlide>, String> {
+    let slides = parsed
+        .get("slides")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "ValidationError: expected $.slides to be an array.".to_string())?;
+    let ilm: Vec<IlmSlide> = slides.iter().filter_map(ilm_slide_from_ir).collect();
+    if ilm.len() != slides.len() {
+        return Err(
+            "RenderError: failed to resolve one or more slide layouts for ILM emission."
+                .to_string(),
+        );
+    }
+    Ok(ilm)
+}
+
+fn build_single_slide_html_from_ilm(
+    slide: &IlmSlide,
+    theme: Option<&serde_json::Map<String, Value>>,
+) -> String {
+    let to_px = |emu: i64| emu / 9525;
+    let mut html = String::new();
+    html.push_str("<!doctype html>\n<html>\n  <head>\n");
+    html.push_str(&render_theme_style_block(theme));
+    html.push_str("    <style>\n      html, body { width: 1366px; height: 768px; }\n");
+    html.push_str(
+        "      body { margin: 0; padding: 0; overflow: hidden; position: relative; box-sizing: border-box; }\n",
+    );
+    html.push_str("      .ilm-text { position: absolute; white-space: pre-wrap; }\n");
+    html.push_str("      .ilm-image { position: absolute; object-fit: cover; }\n");
+    html.push_str("    </style>\n  </head>\n  <body>\n");
+    if let Some(image) = &slide.image {
+        html.push_str(&format!(
+            "    <img class=\"ilm-image\" src=\"{}\" style=\"left:{}px;top:{}px;width:{}px;height:{}px;\"/>\n",
+            html_escape(&image.uri),
+            to_px(image.x),
+            to_px(image.y),
+            to_px(image.cx),
+            to_px(image.cy)
+        ));
+    }
+    for run in &slide.text_runs {
+        html.push_str(&format!(
+            "    <div class=\"ilm-text\" style=\"left:{}px;top:{}px;width:{}px;height:{}px;font-size:{}pt;font-weight:{};\">{}</div>\n",
+            to_px(run.x),
+            to_px(run.y),
+            to_px(run.cx),
+            to_px(run.cy),
+            run.font_size_pt,
+            if run.bold { "700" } else { "400" },
+            html_escape(&run.text).replace('\n', "<br/>")
+        ));
+    }
+    html.push_str("  </body>\n</html>\n");
+    html
+}
+
 fn detect_image_extension(image_uri: &str, bytes: &[u8]) -> &'static str {
     let lower = image_uri.to_ascii_lowercase();
     if lower.ends_with(".png") || bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
         return "png";
     }
-    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") || bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") || bytes.starts_with(&[0xFF, 0xD8, 0xFF])
+    {
         return "jpg";
     }
     if lower.ends_with(".gif") || bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
@@ -742,7 +859,11 @@ fn detect_image_extension(image_uri: &str, bytes: &[u8]) -> &'static str {
     "bin"
 }
 
-fn add_zip_file(zip: &mut ZipWriter<std::io::Cursor<Vec<u8>>>, path: &str, data: &str) -> Result<(), String> {
+fn add_zip_file(
+    zip: &mut ZipWriter<std::io::Cursor<Vec<u8>>>,
+    path: &str,
+    data: &str,
+) -> Result<(), String> {
     zip.start_file(path, SimpleFileOptions::default())
         .map_err(|e| format!("PPTX zip start_file error for {path}: {e}"))?;
     zip.write_all(data.as_bytes())
@@ -750,26 +871,27 @@ fn add_zip_file(zip: &mut ZipWriter<std::io::Cursor<Vec<u8>>>, path: &str, data:
 }
 
 fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
-    let slides = parsed
-        .get("slides")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "ValidationError: expected $.slides to be an array.".to_string())?;
-    let specs: Vec<SlideSpec> = slides.iter().filter_map(slide_spec_from_ir).collect();
-    if specs.len() != slides.len() {
-        return Err("RenderError: failed to resolve one or more slide layouts for PPTX emission.".to_string());
-    }
+    let specs = resolve_ilm_slides(parsed)?;
 
     let router = transport::TransportRouter::new();
     let mut media: Vec<(String, Vec<u8>, &'static str)> = Vec::new();
     for (idx, spec) in specs.iter().enumerate() {
         if let Some(image) = &spec.image {
-            let mut reader = router
-                .open_read(&image.uri)
-                .map_err(|e| format!("AssetError: failed to read image for slide {}: {}", idx + 1, e))?;
+            let mut reader = router.open_read(&image.uri).map_err(|e| {
+                format!(
+                    "AssetError: failed to read image for slide {}: {}",
+                    idx + 1,
+                    e
+                )
+            })?;
             let mut bytes = Vec::new();
-            reader
-                .read_to_end(&mut bytes)
-                .map_err(|e| format!("AssetError: failed to read image bytes for slide {}: {}", idx + 1, e))?;
+            reader.read_to_end(&mut bytes).map_err(|e| {
+                format!(
+                    "AssetError: failed to read image bytes for slide {}: {}",
+                    idx + 1,
+                    e
+                )
+            })?;
             let ext = detect_image_extension(&image.uri, &bytes);
             media.push((format!("image{}.{}", media.len() + 1, ext), bytes, ext));
         }
@@ -784,7 +906,7 @@ fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
         let slide_number = idx + 1;
         let mut shapes_xml = String::new();
         let mut shape_id = 2usize;
-        for tb in &spec.text_boxes {
+        for tb in &spec.text_runs {
             let run_attr = if tb.bold { " b=\"1\"" } else { "" };
             let lines: Vec<&str> = tb.text.lines().collect();
             let mut paragraphs = String::new();
@@ -828,7 +950,11 @@ fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
             "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/><a:chOff x=\"0\" y=\"0\"/><a:chExt cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>{}{}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>",
             shapes_xml, pic_xml
         );
-        add_zip_file(&mut zip, &format!("ppt/slides/slide{slide_number}.xml"), &slide_xml)?;
+        add_zip_file(
+            &mut zip,
+            &format!("ppt/slides/slide{slide_number}.xml"),
+            &slide_xml,
+        )?;
         if spec.image.is_some() {
             add_zip_file(
                 &mut zip,
@@ -857,7 +983,10 @@ fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
             "gif" => "image/gif",
             _ => "application/octet-stream",
         };
-        content_types.push_str(&format!("<Default Extension=\"{}\" ContentType=\"{}\"/>", ext, ct));
+        content_types.push_str(&format!(
+            "<Default Extension=\"{}\" ContentType=\"{}\"/>",
+            ext, ct
+        ));
     }
     content_types.push_str("</Types>");
     add_zip_file(&mut zip, "[Content_Types].xml", &content_types)?;
@@ -892,7 +1021,9 @@ fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
     pres_rels.push_str("</Relationships>");
     add_zip_file(&mut zip, "ppt/_rels/presentation.xml.rels", &pres_rels)?;
 
-    let cursor = zip.finish().map_err(|e| format!("PPTX zip finalize error: {e}"))?;
+    let cursor = zip
+        .finish()
+        .map_err(|e| format!("PPTX zip finalize error: {e}"))?;
     Ok(cursor.into_inner())
 }
 
@@ -942,21 +1073,15 @@ fn render_html_preview(ir_json: &str) -> PyResult<String> {
 /// Renders one slide PNG image per IR slide to the output target.
 fn render_pngs(ir_json: &str, output_target: &str) -> PyResult<()> {
     let parsed = parse_ir(ir_json).map_err(PyValueError::new_err)?;
-    let slides = parsed
-        .get("slides")
-        .and_then(Value::as_array)
-        .ok_or_else(|| PyValueError::new_err("ValidationError: expected $.slides to be an array."))?;
-    let templates = template_registry();
+    let ilm_slides = resolve_ilm_slides(&parsed).map_err(PyValueError::new_err)?;
     let theme = parsed.get("theme").and_then(Value::as_object);
 
     let router = transport::TransportRouter::new();
-    for (index, slide) in slides.iter().enumerate() {
-        let slide_html = build_single_slide_html_document(slide, theme, &templates, index)
-            .map_err(PyValueError::new_err)?;
+    for (index, slide) in ilm_slides.iter().enumerate() {
+        let slide_html = build_single_slide_html_from_ilm(slide, theme);
         let png_bytes = rasterize_html_to_png_bytes(&slide_html).map_err(PyValueError::new_err)?;
         let filename = format!("slide-{:03}.png", index + 1);
-        let sink_uri =
-            slide_sink_uri(output_target, &filename).map_err(PyValueError::new_err)?;
+        let sink_uri = slide_sink_uri(output_target, &filename).map_err(PyValueError::new_err)?;
         let mut writer = router
             .open_write(&sink_uri)
             .map_err(|e| PyValueError::new_err(format!("Transport sink error: {e}")))?;
@@ -968,6 +1093,20 @@ fn render_pngs(ir_json: &str, output_target: &str) -> PyResult<()> {
             .map_err(|e| PyValueError::new_err(format!("Flush error: {e}")))?;
     }
     Ok(())
+}
+
+#[pyfunction]
+/// Registers a custom URI scheme alias for source reads.
+fn register_source_handler(scheme: &str, handler: &str) -> PyResult<()> {
+    transport::register_source_handler(scheme, handler)
+        .map_err(|e| PyValueError::new_err(format!("Transport source registration error: {e}")))
+}
+
+#[pyfunction]
+/// Registers a custom URI scheme alias for sink writes.
+fn register_sink_handler(scheme: &str, handler: &str) -> PyResult<()> {
+    transport::register_sink_handler(scheme, handler)
+        .map_err(|e| PyValueError::new_err(format!("Transport sink registration error: {e}")))
 }
 
 #[pyfunction]
@@ -998,6 +1137,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(explain_operation, m)?)?;
     m.add_function(wrap_pyfunction!(get_examples, m)?)?;
     m.add_function(wrap_pyfunction!(copy_source_to_sink, m)?)?;
+    m.add_function(wrap_pyfunction!(register_source_handler, m)?)?;
+    m.add_function(wrap_pyfunction!(register_sink_handler, m)?)?;
     m.add_function(wrap_pyfunction!(render_html_preview, m)?)?;
     m.add_function(wrap_pyfunction!(render_pngs, m)?)?;
     m.add_function(wrap_pyfunction!(render_pptx, m)?)?;
@@ -1154,6 +1295,21 @@ mod tests {
         let html = render_preview_html(ir_json).expect("html preview should render");
         assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(!html.contains("<script>alert(1)</script>"));
+    }
+
+    #[test]
+    fn ilm_single_slide_html_resets_body_padding_for_geometry_parity() {
+        let slide = ilm_slide_from_ir(&json!({
+            "layout": "title",
+            "slots": {
+                "title": "Quarterly Update",
+                "subtitle": "FY26"
+            }
+        }))
+        .expect("ilm slide");
+
+        let html = build_single_slide_html_from_ilm(&slide, None);
+        assert!(html.contains("body { margin: 0; padding: 0;"));
     }
 
     #[test]

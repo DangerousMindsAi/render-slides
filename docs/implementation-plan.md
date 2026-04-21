@@ -257,10 +257,13 @@
 - ✅ Updated parity CI to execute HTML + PNG + PPTX checks and upload mismatch artifacts by check type.
 - ✅ Switched renderer golden fixtures to Base64 text snapshots (`*.render.png.base64`, `*.render.pptx.base64`) to avoid binary-file PR tooling limitations.
 - ✅ Added migration helper script (`scripts/migrate_renderer_fixtures_to_base64.py`) to convert accidentally-generated binary renderer fixtures into Base64 text fixtures.
+- ✅ Wired an ILM-first shared geometry resolver into both render emitters so `render_pngs` and `render_pptx` consume the same absolute-positioned text/image model.
+- ✅ Added runtime transport registration hooks (`register_source_handler`, `register_sink_handler`) with custom scheme alias dispatch onto built-in adapters.
 - ⏭️ Next:
   1. Calibrate shared geometry/token mapping to tighten HTML/PPTX visual parity.
   2. Add optional PPTX-to-image export parity mode for visual diffs against PPTX-derived renders.
   3. Expand fixture coverage with more multi-slide and media-heavy decks to harden regression detection.
+  4. Extend transport plugins from alias mapping to fully custom callback/provider adapters.
 
 ### 2026-04-20
 - ✅ Added deterministic template-body consumption in the Rust core via a preview HTML pipeline (`render_html_preview`) with slot substitution and escaping.
@@ -358,9 +361,11 @@
 - ✅ HTML preview now emits deterministic shared theme tokens and accepts IR theme overrides for baseline styling parity work.
 - ✅ First parity fixture + harness plumbing now exists for deterministic preview HTML checks.
 - ✅ PNG backend now rasterizes rendered slide HTML into real per-slide PNG images.
-- ⏳ PPTX backend remains placeholder output.
+- ✅ PPTX backend now emits deterministic OpenXML output with layout text/image placement.
+- ✅ ILM-first shared geometry flow now feeds both PNG and PPTX emitters.
+- ✅ Python runtime transport registration hooks are available for custom URI scheme alias routing.
 
 ### Immediate Next Steps
-1. Attach PNG/PPTX generation to fixture comparisons.
-2. Extend parity CI to run renderer-backed checks with image/PPTX diff artifact uploads.
-3. Add renderer-level golden tests for `render_pngs` / `render_pptx` once emitters are wired.
+1. Tune ILM geometry/token calibration to tighten visual parity between HTML-rendered PNGs and PPTX.
+2. Extend parity CI with optional PPTX-to-image export/diff flow.
+3. Expand plugin registration from alias routing to fully custom provider callbacks.

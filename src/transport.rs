@@ -7,11 +7,13 @@
 
 use reqwest::blocking::{Client, Response};
 use reqwest::header::CONTENT_TYPE;
+use std::collections::HashMap;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{Cursor, Read, Write};
 use std::path::Component;
 use std::path::PathBuf;
+use std::sync::{Arc, LazyLock, RwLock};
 use url::Url;
 
 const S3_ROOT_ENV: &str = "RENDER_SLIDES_S3_ROOT";
@@ -83,6 +85,40 @@ pub trait Source {
 pub trait Sink {
     /// Opens a writable stream for the given URI.
     fn open_write(&self, uri: &str) -> Result<Box<dyn Write + Send>, TransportError>;
+}
+
+type SourceHandler = Arc<dyn Source + Send + Sync>;
+type SinkHandler = Arc<dyn Sink + Send + Sync>;
+
+static SOURCE_HANDLERS: LazyLock<RwLock<HashMap<String, SourceHandler>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+static SINK_HANDLERS: LazyLock<RwLock<HashMap<String, SinkHandler>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+
+struct AliasedSourceHandler {
+    alias_scheme: String,
+    target_scheme: String,
+    inner: SourceHandler,
+}
+
+impl Source for AliasedSourceHandler {
+    fn open_read(&self, uri: &str) -> Result<Box<dyn Read + Send>, TransportError> {
+        let rewritten = rewrite_uri_for_alias(uri, &self.alias_scheme, &self.target_scheme)?;
+        self.inner.open_read(&rewritten)
+    }
+}
+
+struct AliasedSinkHandler {
+    alias_scheme: String,
+    target_scheme: String,
+    inner: SinkHandler,
+}
+
+impl Sink for AliasedSinkHandler {
+    fn open_write(&self, uri: &str) -> Result<Box<dyn Write + Send>, TransportError> {
+        let rewritten = rewrite_uri_for_alias(uri, &self.alias_scheme, &self.target_scheme)?;
+        self.inner.open_write(&rewritten)
+    }
 }
 
 #[derive(Clone, Default)]
@@ -315,6 +351,14 @@ impl TransportRouter {
     /// Opens a readable stream based on URI scheme dispatch.
     pub fn open_read(&self, uri: &str) -> Result<Box<dyn Read + Send>, TransportError> {
         let scheme = scheme(uri)?;
+        if let Some(handler) = SOURCE_HANDLERS
+            .read()
+            .expect("source handler registry lock poisoned")
+            .get(&scheme)
+            .cloned()
+        {
+            return handler.open_read(uri);
+        }
 
         match scheme.as_str() {
             "file" | "" => self.local.open_read(uri),
@@ -327,6 +371,14 @@ impl TransportRouter {
     /// Opens a writable stream based on URI scheme dispatch.
     pub fn open_write(&self, uri: &str) -> Result<Box<dyn Write + Send>, TransportError> {
         let scheme = scheme(uri)?;
+        if let Some(handler) = SINK_HANDLERS
+            .read()
+            .expect("sink handler registry lock poisoned")
+            .get(&scheme)
+            .cloned()
+        {
+            return handler.open_write(uri);
+        }
 
         match scheme.as_str() {
             "file" | "" => self.local.open_write(uri),
@@ -337,6 +389,68 @@ impl TransportRouter {
     }
 }
 
+/// Registers a source handler alias for a URI scheme.
+pub fn register_source_handler(scheme: &str, handler: &str) -> Result<(), TransportError> {
+    let normalized = normalize_custom_scheme(scheme)?;
+    let (target_scheme, inner): (String, SourceHandler) = match handler {
+        "local" | "file" => ("file".to_string(), Arc::new(LocalAdapter)),
+        "http" => ("http".to_string(), Arc::new(HttpAdapter::new())),
+        "https" => ("https".to_string(), Arc::new(HttpAdapter::new())),
+        "s3" => ("s3".to_string(), Arc::new(S3Adapter::new())),
+        other => {
+            return Err(TransportError::UnsupportedScheme(other.to_string()));
+        }
+    };
+    let adapter: SourceHandler = Arc::new(AliasedSourceHandler {
+        alias_scheme: normalized.clone(),
+        target_scheme,
+        inner,
+    });
+
+    SOURCE_HANDLERS
+        .write()
+        .expect("source handler registry lock poisoned")
+        .insert(normalized, adapter);
+    Ok(())
+}
+
+/// Registers a sink handler alias for a URI scheme.
+pub fn register_sink_handler(scheme: &str, handler: &str) -> Result<(), TransportError> {
+    let normalized = normalize_custom_scheme(scheme)?;
+    let (target_scheme, inner): (String, SinkHandler) = match handler {
+        "local" | "file" => ("file".to_string(), Arc::new(LocalAdapter)),
+        "http" => ("http".to_string(), Arc::new(HttpAdapter::new())),
+        "https" => ("https".to_string(), Arc::new(HttpAdapter::new())),
+        "s3" => ("s3".to_string(), Arc::new(S3Adapter::new())),
+        other => {
+            return Err(TransportError::UnsupportedScheme(other.to_string()));
+        }
+    };
+    let adapter: SinkHandler = Arc::new(AliasedSinkHandler {
+        alias_scheme: normalized.clone(),
+        target_scheme,
+        inner,
+    });
+
+    SINK_HANDLERS
+        .write()
+        .expect("sink handler registry lock poisoned")
+        .insert(normalized, adapter);
+    Ok(())
+}
+
+/// Clears custom source/sink handler aliases.
+pub fn clear_custom_handlers() {
+    SOURCE_HANDLERS
+        .write()
+        .expect("source handler registry lock poisoned")
+        .clear();
+    SINK_HANDLERS
+        .write()
+        .expect("sink handler registry lock poisoned")
+        .clear();
+}
+
 /// Determines the scheme for a URI or returns empty for local paths.
 fn scheme(uri: &str) -> Result<String, TransportError> {
     if uri.contains("://") {
@@ -345,6 +459,34 @@ fn scheme(uri: &str) -> Result<String, TransportError> {
     }
 
     Ok("".to_string())
+}
+
+fn normalize_custom_scheme(raw: &str) -> Result<String, TransportError> {
+    if raw.is_empty() {
+        return Err(TransportError::InvalidUri(raw.to_string()));
+    }
+    if raw.contains("://") {
+        return Err(TransportError::InvalidUri(raw.to_string()));
+    }
+    Ok(raw.to_ascii_lowercase())
+}
+
+fn rewrite_uri_for_alias(
+    uri: &str,
+    alias_scheme: &str,
+    target_scheme: &str,
+) -> Result<String, TransportError> {
+    let prefix = format!("{alias_scheme}://");
+    let remainder = uri
+        .strip_prefix(&prefix)
+        .ok_or_else(|| TransportError::InvalidUri(uri.to_string()))?;
+    if target_scheme == "file" {
+        if remainder.starts_with('/') {
+            return Ok(remainder.to_string());
+        }
+        return Ok(format!("/{remainder}"));
+    }
+    Ok(format!("{target_scheme}://{remainder}"))
 }
 
 /// Resolves a local filesystem path from a raw path or file:// URI.
@@ -596,5 +738,12 @@ mod tests {
             .expect("read");
 
         assert_eq!(response, "payload");
+    }
+
+    #[test]
+    fn rewrite_uri_for_alias_preserves_https_target_scheme() {
+        let rewritten =
+            rewrite_uri_for_alias("custom://example.com/path", "custom", "https").expect("uri");
+        assert_eq!(rewritten, "https://example.com/path");
     }
 }

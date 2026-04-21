@@ -150,9 +150,8 @@ python scripts/parity_harness.py --checks html,png,pptx --update
 
 ## Remaining gaps
 
-- PPTX output currently uses deterministic layout mapping for v1 templates; full ILM-shared geometry parity with HTML output is still in progress.
-- Runtime-extensible Python registration hooks (`register_source_handler`, `register_sink_handler`) are still planned but not yet exposed.
-- ILM-first dual-emitter architecture (shared absolute geometry consumed by both HTML and PPTX emitters) remains to be implemented.
+- Final parity calibration is still in progress (token tuning + visual diff thresholds for tighter HTML/PPTX match).
+- Transport plugins currently support runtime scheme registration via handler aliases (`register_source_handler`, `register_sink_handler`) mapped to built-in adapters (`file`, `http`, `s3`); custom callback-based adapters are not yet available.
 
 ## Implementation plan status
 
@@ -167,4 +166,6 @@ python scripts/parity_harness.py --checks html,png,pptx --update
 - ✅ Parity harness now validates HTML + renderer-backed PNG/PPTX outputs with configurable PNG diff thresholds and CI artifact uploads.
 - ✅ `render_pngs` now emits real HTML-to-image slide PNG snapshots (1366x768) via `hyper_render` instead of placeholder 1x1 bytes.
 - ✅ Renderer entrypoint APIs now emit deterministic output artifacts (`render_pngs`, `render_pptx`) rather than raising `NotImplementedError`.
+- ✅ ILM-first dual-emitter wiring now drives both PNG and PPTX rendering from one shared absolute-geometry slide model.
+- ✅ Runtime transport registration hooks (`register_source_handler`, `register_sink_handler`) are now exposed in the Python API.
 - ⏭️ Next: calibrate geometry tokens for tighter HTML/PPTX visual parity and add optional PPTX-to-image parity export checks in CI.
