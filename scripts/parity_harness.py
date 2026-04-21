@@ -58,7 +58,7 @@ def render_fixture_html(ir_path: Path) -> str:
     return render_slides.render_html_preview(json.dumps(ir))
 
 
-def should_skip_renderer_checks(ir: dict) -> str | None:
+def should_skip_png_check(ir: dict) -> str | None:
     slides = ir.get("slides")
     if not isinstance(slides, list):
         return "IR is missing a slides array"
@@ -355,17 +355,14 @@ def run_checks(ir_files: Iterable[Path], fixtures_dir: Path, config: HarnessConf
 
         if "html" in config.checks:
             mismatches.extend(compare_html(stem, ir_path, fixtures_dir, config))
-        skip_reason = should_skip_renderer_checks(ir)
+        png_skip_reason = should_skip_png_check(ir)
         if "png" in config.checks:
-            if skip_reason:
-                print(f"skipped png check for {stem}: {skip_reason}")
+            if png_skip_reason:
+                print(f"skipped png check for {stem}: {png_skip_reason}")
             else:
                 mismatches.extend(compare_png(stem, ir_json, fixtures_dir, config))
         if "pptx" in config.checks:
-            if skip_reason:
-                print(f"skipped pptx check for {stem}: {skip_reason}")
-            else:
-                mismatches.extend(compare_pptx(stem, ir_json, fixtures_dir, config))
+            mismatches.extend(compare_pptx(stem, ir_json, fixtures_dir, config))
 
     return mismatches
 
