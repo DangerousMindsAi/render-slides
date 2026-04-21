@@ -15,6 +15,7 @@ This repository currently contains:
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
 - a deterministic HTML preview API (`render_html_preview`) that consumes layout template bodies and materializes slide slot values
 - preview HTML theme-token emission with deterministic CSS custom properties (default tokens + optional IR theme overrides)
+- layout-aware validation errors with required/optional/provided slot summaries and deterministic `suggested_fix` guidance
 - expanded parity fixtures + harness checks across all v1 layouts at `fixtures/parity/` and `scripts/parity_harness.py`
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
@@ -119,8 +120,8 @@ target/doc/render_slides/index.html
 
 ## Next steps
 
-- Add PNG and PPTX artifact generation hooks to the parity harness when renderer entrypoints land.
-- Implement first renderer-backed parity pass for `title_body` in both PNG and PPTX outputs.
+- Implement renderer entrypoints for PNG and PPTX output generation (`render_pngs`, `render_pptx`).
+- Add PNG and PPTX artifact generation hooks to the parity harness once renderer entrypoints land.
 - Extend parity CI to include renderer-backed checks and visual-diff thresholds once image/PPTX emitters are wired.
 
 ## Implementation plan status
@@ -129,8 +130,9 @@ target/doc/render_slides/index.html
 - ✅ Introspection path coverage now includes `section` and `image_focus` slot paths via tests.
 - ✅ Operation-spec snapshot testing now locks path + operation + params + bounds contracts for introspection.
 - ✅ Layout-aware semantic validation now enforces required slot combinations per layout before render-time.
+- ✅ Validation errors now include layout-specific required/optional/provided slot details with deterministic `suggested_fix` hints.
 - ✅ Template bodies are now consumed by a deterministic HTML preview pipeline (`render_html_preview`) with HTML escaping and slot substitution.
 - ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
 - ✅ Golden parity fixtures now cover all v1 layouts with deterministic preview snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
 - ✅ Parity harness checks now run in CI and upload mismatch artifacts (`expected`/`actual`/`diff`) for debugging.
-- ⏭️ Next: bridge parity harness outputs to real PNG and PPTX renderer pipelines once those entrypoints are implemented.
+- ⏭️ Next: implement renderer entrypoints, then bridge parity harness outputs to real PNG and PPTX pipelines.

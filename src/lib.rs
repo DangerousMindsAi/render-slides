@@ -155,14 +155,14 @@ fn validate_layout_required_slots(parsed: &Value) -> Result<(), String> {
             continue;
         };
 
-        let required_slots: &[&str] = match layout {
-            "title" => &["title", "subtitle"],
-            "title_body" => &["title", "body"],
-            "two_column" => &["title", "left", "right"],
-            "section" => &["title", "subtitle"],
-            "image_focus" => &["title", "image", "caption"],
-            "quote" => &["quote", "attribution"],
-            "comparison" => &["title", "left", "right"],
+        let (required_slots, optional_slots): (&[&str], &[&str]) = match layout {
+            "title" => (&["title", "subtitle"], &[]),
+            "title_body" => (&["title", "body"], &["subtitle"]),
+            "two_column" => (&["title", "left", "right"], &["subtitle"]),
+            "section" => (&["title", "subtitle"], &[]),
+            "image_focus" => (&["title", "image", "caption"], &["subtitle"]),
+            "quote" => (&["quote", "attribution"], &[]),
+            "comparison" => (&["title", "left", "right"], &["subtitle"]),
             _ => continue,
         };
 
@@ -172,8 +172,11 @@ fn validate_layout_required_slots(parsed: &Value) -> Result<(), String> {
 
         for required_slot in required_slots {
             if !slots.contains_key(*required_slot) {
+                let mut provided_slots: Vec<&str> = slots.keys().map(String::as_str).collect();
+                provided_slots.sort_unstable();
+                let suggested_fix = format!("Add slots.{required_slot} as a string value.");
                 return Err(format!(
-                    "ValidationError: missing required slot '{required_slot}' for layout '{layout}' at $.slides[{index}].slots."
+                    "ValidationError: missing required slot '{required_slot}' for layout '{layout}' at $.slides[{index}].slots. expected_required={required_slots:?}; optional={optional_slots:?}; provided={provided_slots:?}; suggested_fix=\"{suggested_fix}\"."
                 ));
             }
         }
