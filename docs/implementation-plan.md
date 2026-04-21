@@ -362,10 +362,11 @@
 - ✅ First parity fixture + harness plumbing now exists for deterministic preview HTML checks.
 - ✅ PNG backend now rasterizes rendered slide HTML into real per-slide PNG images.
 - ✅ PPTX backend now emits deterministic OpenXML output with layout text/image placement.
+- ✅ Parity harness now supports an optional PPTX-to-image (`pptx_png`) export/diff check path for visual comparison against renderer PNG fixtures when LibreOffice is available.
 - ✅ ILM-first shared geometry flow now feeds both PNG and PPTX emitters.
 - ✅ Python runtime transport registration hooks are available for custom URI scheme alias routing.
 
 ### Immediate Next Steps
 1. Tune ILM geometry/token calibration to tighten visual parity between HTML-rendered PNGs and PPTX.
-2. Extend parity CI with optional PPTX-to-image export/diff flow.
+2. Wire the optional PPTX-to-image export/diff flow into CI environments that can provide a stable `soffice` runtime.
 3. Expand plugin registration from alias routing to fully custom provider callbacks.

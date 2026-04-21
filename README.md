@@ -140,6 +140,15 @@ Refresh fixtures after intentional rendering changes:
 python scripts/parity_harness.py --checks html,png,pptx --update
 ```
 
+Optional PPTX visual parity mode (requires LibreOffice `soffice` in `PATH`):
+
+```bash
+python scripts/parity_harness.py \
+  --checks html,png,pptx,pptx_png \
+  --png-rmse-threshold 2.5 \
+  --png-diff-ratio-threshold 0.02
+```
+
 > Note: renderer golden fixtures are stored as text-safe Base64 files (`*.render.png.base64`, `*.render.pptx.base64`) so PR tooling that rejects binary files can still create PRs cleanly.
 >
 > If someone accidentally generates binary renderer fixtures, run:
@@ -164,6 +173,7 @@ python scripts/parity_harness.py --checks html,png,pptx --update
 - ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
 - ✅ Golden parity fixtures now cover all v1 layouts with deterministic preview snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
 - ✅ Parity harness now validates HTML + renderer-backed PNG/PPTX outputs with configurable PNG diff thresholds and CI artifact uploads.
+- ✅ Parity harness now includes an optional `pptx_png` mode to convert emitted PPTX decks to PNGs (via LibreOffice) and run image-level diffs against renderer PNG fixtures.
 - ✅ `render_pngs` now emits real HTML-to-image slide PNG snapshots (1366x768) via `hyper_render` instead of placeholder 1x1 bytes.
 - ✅ Renderer entrypoint APIs now emit deterministic output artifacts (`render_pngs`, `render_pptx`) rather than raising `NotImplementedError`.
 - ✅ ILM-first dual-emitter wiring now drives both PNG and PPTX rendering from one shared absolute-geometry slide model.

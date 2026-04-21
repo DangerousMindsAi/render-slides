@@ -8,6 +8,8 @@ import base64
 import difflib
 import json
 import math
+import shutil
+import subprocess
 import tempfile
 import zlib
 from dataclasses import dataclass
@@ -44,7 +46,7 @@ class HarnessConfig:
 
 def parse_checks(raw_checks: str) -> set[str]:
     checks = {item.strip().lower() for item in raw_checks.split(",") if item.strip()}
-    valid = {"html", "png", "pptx"}
+    valid = {"html", "png", "pptx", "pptx_png"}
     unknown = checks - valid
     if unknown:
         raise SystemExit(f"Unknown parity check(s): {', '.join(sorted(unknown))}")
@@ -346,6 +348,102 @@ def compare_pptx(stem: str, ir_json: str, fixtures_dir: Path, config: HarnessCon
     return mismatches
 
 
+def convert_pptx_to_pngs(pptx_path: Path, output_dir: Path) -> list[Path]:
+    soffice = shutil.which("soffice")
+    if soffice is None:
+        return []
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    command = [
+        soffice,
+        "--headless",
+        "--convert-to",
+        "png",
+        "--outdir",
+        str(output_dir),
+        str(pptx_path),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(
+            "PPTX-to-PNG conversion failed via soffice: "
+            f"exit={result.returncode}, stderr={result.stderr.strip()}"
+        )
+
+    deck_stem = pptx_path.stem
+    converted = sorted(output_dir.glob(f"{deck_stem}*.png"))
+    return converted
+
+
+def compare_pptx_png(
+    stem: str,
+    ir_json: str,
+    fixtures_dir: Path,
+    config: HarnessConfig,
+) -> list[str]:
+    mismatches: list[str] = []
+    expected_png_path = fixtures_dir / f"{stem}.render.png.base64"
+
+    if not expected_png_path.exists():
+        return [
+            "missing expected PNG fixture required for pptx_png check: "
+            f"{expected_png_path}"
+        ]
+
+    expected_png = base64.b64decode(expected_png_path.read_text(encoding="utf-8"))
+
+    with tempfile.TemporaryDirectory(prefix=f"parity-{stem}-pptx-png-") as tmp:
+        tmp_path = Path(tmp)
+        pptx_path = tmp_path / "deck.pptx"
+        render_slides.render_pptx(ir_json, str(pptx_path))
+
+        converted_pngs = convert_pptx_to_pngs(pptx_path, tmp_path / "png")
+        if not converted_pngs:
+            print(
+                "skipped pptx_png check for "
+                f"{stem}: libreoffice/soffice not available in environment"
+            )
+            return mismatches
+
+        actual_png = converted_pngs[0].read_bytes()
+        metrics = diff_png(expected_png, actual_png)
+
+    over_rmse = metrics.rmse > config.png_rmse_threshold
+    over_ratio = metrics.diff_ratio > config.png_diff_ratio_threshold
+    if over_rmse or over_ratio:
+        mismatches.append(
+            "pptx_png mismatch: "
+            f"{stem} "
+            f"(rmse={metrics.rmse:.4f} threshold={config.png_rmse_threshold:.4f}, "
+            f"diff_ratio={metrics.diff_ratio:.6f} threshold={config.png_diff_ratio_threshold:.6f}, "
+            f"diff_pixels={metrics.diff_pixels}/{metrics.total_pixels}, "
+            f"max_delta={metrics.max_channel_delta})"
+        )
+        if config.artifacts_dir:
+            write_artifact(config.artifacts_dir / f"pptx_png/{stem}.expected.png", expected_png)
+            write_artifact(config.artifacts_dir / f"pptx_png/{stem}.actual.png", actual_png)
+            write_artifact(
+                config.artifacts_dir / f"pptx_png/{stem}.metrics.json",
+                json.dumps(
+                    {
+                        "width": metrics.width,
+                        "height": metrics.height,
+                        "diff_pixels": metrics.diff_pixels,
+                        "total_pixels": metrics.total_pixels,
+                        "diff_ratio": metrics.diff_ratio,
+                        "max_channel_delta": metrics.max_channel_delta,
+                        "rmse": metrics.rmse,
+                        "rmse_threshold": config.png_rmse_threshold,
+                        "diff_ratio_threshold": config.png_diff_ratio_threshold,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+            )
+    return mismatches
+
+
 def run_checks(ir_files: Iterable[Path], fixtures_dir: Path, config: HarnessConfig) -> list[str]:
     mismatches: list[str] = []
     for ir_path in ir_files:
@@ -363,6 +461,8 @@ def run_checks(ir_files: Iterable[Path], fixtures_dir: Path, config: HarnessConf
                 mismatches.extend(compare_png(stem, ir_json, fixtures_dir, config))
         if "pptx" in config.checks:
             mismatches.extend(compare_pptx(stem, ir_json, fixtures_dir, config))
+        if "pptx_png" in config.checks:
+            mismatches.extend(compare_pptx_png(stem, ir_json, fixtures_dir, config))
 
     return mismatches
 
@@ -377,7 +477,7 @@ def main() -> int:
     parser.add_argument(
         "--checks",
         default="html,png,pptx",
-        help="Comma-separated checks to run: html,png,pptx",
+        help="Comma-separated checks to run: html,png,pptx,pptx_png",
     )
     parser.add_argument(
         "--update",
