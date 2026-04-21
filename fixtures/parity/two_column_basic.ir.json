@@ -1,0 +1,12 @@
+{
+  "slides": [
+    {
+      "layout": "two_column",
+      "slots": {
+        "title": "Execution Streams",
+        "left": "Platform hardening\nSDK upgrades",
+        "right": "Launch checklist\nRollout support"
+      }
+    }
+  ]
+}

@@ -289,10 +289,22 @@ def test_render_html_preview_applies_theme_overrides():
     assert "--rs-color-bg: #101820;" in html
 
 
-def test_render_html_preview_matches_golden_fixture():
+@pytest.mark.parametrize(
+    "fixture_stem",
+    [
+        "title_basic",
+        "title_body_basic",
+        "two_column_basic",
+        "section_basic",
+        "image_focus_basic",
+        "quote_basic",
+        "comparison_basic",
+    ],
+)
+def test_render_html_preview_matches_golden_fixture(fixture_stem):
     fixture_root = Path(__file__).resolve().parents[1] / "fixtures" / "parity"
-    ir = json.loads((fixture_root / "title_body_basic.ir.json").read_text(encoding="utf-8"))
-    expected_html = (fixture_root / "title_body_basic.preview.html").read_text(encoding="utf-8")
+    ir = json.loads((fixture_root / f"{fixture_stem}.ir.json").read_text(encoding="utf-8"))
+    expected_html = (fixture_root / f"{fixture_stem}.preview.html").read_text(encoding="utf-8")
 
     html = render_slides.render_html_preview(json.dumps(ir))
     assert html == expected_html

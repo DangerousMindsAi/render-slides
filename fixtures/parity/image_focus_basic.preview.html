@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      :root {
+        --rs-color-bg: #ffffff;
+        --rs-color-text-muted: #4f4f4f;
+        --rs-color-text-primary: #111111;
+        --rs-font-family-base: &#39;Inter&#39;, &#39;Segoe UI&#39;, sans-serif;
+        --rs-font-size-body: 28px;
+        --rs-font-size-title: 48px;
+        --rs-line-height-body: 1.35;
+        --rs-line-height-title: 1.15;
+        --rs-space-slide-padding: 48px;
+      }
+      body {
+        margin: 0;
+        padding: var(--rs-space-slide-padding);
+        background: var(--rs-color-bg);
+        color: var(--rs-color-text-primary);
+        font-family: var(--rs-font-family-base);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide layout-image-focus" data-layout="image_focus">
+  <h1 data-slot="title">Product Preview</h1>
+  <figure>
+    <img data-slot="image" src="https://example.com/preview.png" alt="" />
+    <figcaption data-slot="caption">Updated analytics dashboard</figcaption>
+  </figure>
+</section>
+  </body>
+</html>

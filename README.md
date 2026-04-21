@@ -15,7 +15,7 @@ This repository currently contains:
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
 - a deterministic HTML preview API (`render_html_preview`) that consumes layout template bodies and materializes slide slot values
 - preview HTML theme-token emission with deterministic CSS custom properties (default tokens + optional IR theme overrides)
-- initial parity fixtures + harness scaffolding at `fixtures/parity/` and `scripts/parity_harness.py`
+- expanded parity fixtures + harness checks across all v1 layouts at `fixtures/parity/` and `scripts/parity_harness.py`
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
 - a one-command Rustdoc generation script at `scripts/generate-docs.sh`
@@ -118,7 +118,7 @@ target/doc/render_slides/index.html
 
 ## Next steps
 
-- Extend parity fixtures from HTML-preview-only checks to include PNG and PPTX comparison artifacts once renderer entrypoints are implemented.
+- Add PNG and PPTX artifact generation hooks to the parity harness when renderer entrypoints land.
 - Wire the parity harness into CI to publish fixture diffs as build artifacts.
 - Implement first renderer-backed parity pass for `title_body` in both PNG and PPTX outputs.
 
@@ -130,5 +130,5 @@ target/doc/render_slides/index.html
 - ✅ Layout-aware semantic validation now enforces required slot combinations per layout before render-time.
 - ✅ Template bodies are now consumed by a deterministic HTML preview pipeline (`render_html_preview`) with HTML escaping and slot substitution.
 - ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
-- ✅ First golden parity fixture and harness scaffolding are in place (`fixtures/parity`, `scripts/parity_harness.py`).
+- ✅ Golden parity fixtures now cover all v1 layouts with deterministic preview snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
 - ⏭️ Next: bridge parity harness outputs to real PNG and PPTX renderer pipelines once those entrypoints are implemented.

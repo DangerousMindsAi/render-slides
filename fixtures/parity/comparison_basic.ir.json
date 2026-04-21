@@ -1,0 +1,12 @@
+{
+  "slides": [
+    {
+      "layout": "comparison",
+      "slots": {
+        "title": "Option Tradeoffs",
+        "left": "Faster setup\nLower flexibility",
+        "right": "Higher control\nLonger lead time"
+      }
+    }
+  ]
+}
