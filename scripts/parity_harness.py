@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 from pathlib import Path
 
@@ -27,6 +28,13 @@ def main() -> int:
         action="store_true",
         help="Write rendered HTML into *.preview.html files.",
     )
+    parser.add_argument(
+        "--artifacts-dir",
+        help=(
+            "Optional output directory for mismatch artifacts. "
+            "When set, expected/actual HTML and unified diffs are written per fixture."
+        ),
+    )
     args = parser.parse_args()
 
     fixtures_dir = Path(args.fixtures_dir)
@@ -35,6 +43,9 @@ def main() -> int:
         raise SystemExit(f"No fixture IR files found in {fixtures_dir}")
 
     mismatches: list[str] = []
+    artifacts_dir = Path(args.artifacts_dir) if args.artifacts_dir else None
+    if artifacts_dir:
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     for ir_path in ir_files:
         stem = ir_path.name.removesuffix(".ir.json")
@@ -53,10 +64,29 @@ def main() -> int:
         expected_html = expected_path.read_text(encoding="utf-8")
         if expected_html != actual_html:
             mismatches.append(f"mismatch: {expected_path}")
+            if artifacts_dir:
+                expected_artifact = artifacts_dir / f"{stem}.expected.html"
+                actual_artifact = artifacts_dir / f"{stem}.actual.html"
+                diff_artifact = artifacts_dir / f"{stem}.diff.txt"
+
+                expected_artifact.write_text(expected_html, encoding="utf-8")
+                actual_artifact.write_text(actual_html, encoding="utf-8")
+                unified_diff = "\n".join(
+                    difflib.unified_diff(
+                        expected_html.splitlines(),
+                        actual_html.splitlines(),
+                        fromfile=f"{stem}.expected.html",
+                        tofile=f"{stem}.actual.html",
+                        lineterm="",
+                    )
+                )
+                diff_artifact.write_text(f"{unified_diff}\n", encoding="utf-8")
 
     if mismatches:
         for message in mismatches:
             print(message)
+        if artifacts_dir:
+            print(f"wrote mismatch artifacts to {artifacts_dir}")
         return 1
 
     print(f"checked {len(ir_files)} fixture(s)")

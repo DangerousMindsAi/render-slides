@@ -246,10 +246,12 @@
 - ✅ Added first golden parity fixture pair under `fixtures/parity/` for deterministic HTML preview validation.
 - ✅ Scaffolded an initial parity harness script (`scripts/parity_harness.py`) with `--update` and check modes for fixture workflows.
 - ✅ Expanded parity fixture coverage across all v1 layouts (`title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, `comparison`) and locked them with Python golden tests.
+- ✅ Added parity harness CI workflow (`.github/workflows/parity-harness.yml`) and artifact upload plumbing for mismatch diagnostics.
+- ✅ Extended parity harness with `--artifacts-dir` output to persist expected/actual HTML and unified diffs on failures.
 - ⏭️ Next:
   1. Add PNG and PPTX artifact generation hooks to parity harness once renderers are implemented.
-  2. Wire parity-harness checks/diff artifacts into CI.
-  3. Implement renderer-backed parity comparisons for `title_body` as the first end-to-end PNG/PPTX slice.
+  2. Implement renderer-backed parity comparisons for `title_body` as the first end-to-end PNG/PPTX slice.
+  3. Add image-diff thresholds and renderer artifact publication to CI once PNG/PPTX outputs exist.
 
 ### 2026-04-20
 - ✅ Added deterministic template-body consumption in the Rust core via a preview HTML pipeline (`render_html_preview`) with slot substitution and escaping.
@@ -349,7 +351,7 @@
 - ⏳ Rendering backends (`render_pngs`, `render_pptx`) remain placeholders.
 
 ### Immediate Next Steps
-1. Integrate parity harness checks into CI with artifact publication on mismatches.
-2. Implement renderer entrypoints and attach PNG/PPTX generation to fixture comparisons.
+1. Implement renderer entrypoints and attach PNG/PPTX generation to fixture comparisons.
+2. Extend parity CI to run renderer-backed checks with image/PPTX diff artifact uploads.
 3. Extend semantic validation with per-layout optional-slot guidance and richer corrective hints for agent retry loops.
 4. Add renderer-level golden tests for `render_pngs` / `render_pptx` once emitters are wired.
