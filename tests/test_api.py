@@ -340,15 +340,19 @@ def test_render_pngs_writes_one_file_per_slide(tmp_path):
     assert int.from_bytes(slide_2_bytes[20:24], byteorder="big") == 768
 
 
-def test_render_pptx_writes_placeholder_payload(tmp_path):
+def test_render_pptx_writes_openxml_package(tmp_path):
     output_path = tmp_path / "deck.pptx"
     ir = {"slides": [{"layout": "title", "slots": {"title": "A", "subtitle": "B"}}]}
 
     render_slides.render_pptx(json.dumps(ir), str(output_path))
 
-    payload = json.loads(output_path.read_text(encoding="utf-8"))
-    assert payload["status"] == "placeholder"
-    assert payload["slide_count"] == 1
+    import zipfile
+
+    with zipfile.ZipFile(output_path, "r") as archive:
+        assert "[Content_Types].xml" in archive.namelist()
+        assert "ppt/presentation.xml" in archive.namelist()
+        slide_xml = archive.read("ppt/slides/slide1.xml").decode("utf-8")
+        assert "A" in slide_xml
 
 
 def test_list_paths_supports_wildcards_by_default():

@@ -34,7 +34,11 @@ jobs:
       - name: Run parity harness
         run: |
           mkdir -p artifacts/parity
-          python scripts/parity_harness.py --artifacts-dir artifacts/parity
+          python scripts/parity_harness.py \
+            --checks html,png,pptx \
+            --png-rmse-threshold 0.0 \
+            --png-diff-ratio-threshold 0.0 \
+            --artifacts-dir artifacts/parity
 
       - name: Upload parity artifacts
         if: always()
