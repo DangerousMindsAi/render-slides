@@ -219,6 +219,39 @@ def test_copy_source_to_sink_rejects_s3_path_traversal(tmp_path):
     assert "Invalid URI or path" in str(exc_info.value)
 
 
+def test_render_html_preview_renders_template_output():
+    ir = {
+        "slides": [
+            {
+                "layout": "title_body",
+                "slots": {"title": "Quarterly Update", "body": "Highlights"},
+            }
+        ]
+    }
+
+    html = render_slides.render_html_preview(json.dumps(ir))
+
+    assert '<section class="slide layout-title-body" data-layout="title_body">' in html
+    assert ">Quarterly Update<" in html
+    assert ">Highlights<" in html
+
+
+def test_render_html_preview_escapes_html_in_slot_values():
+    ir = {
+        "slides": [
+            {
+                "layout": "title_body",
+                "slots": {"title": "<b>unsafe</b>", "body": "ok"},
+            }
+        ]
+    }
+
+    html = render_slides.render_html_preview(json.dumps(ir))
+
+    assert "&lt;b&gt;unsafe&lt;/b&gt;" in html
+    assert "<b>unsafe</b>" not in html
+
+
 def test_render_pngs_placeholder_raises_not_implemented():
     with pytest.raises(NotImplementedError):
         render_slides.render_pngs('{"slides": []}', "file:///tmp/slides")

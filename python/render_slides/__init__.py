@@ -7,6 +7,7 @@ from ._core import (
     get_examples,
     list_operations,
     list_paths,
+    render_html_preview,
     render_pngs,
     render_pptx,
     validate,
@@ -20,6 +21,7 @@ __all__ = [
     "explain_operation",
     "get_examples",
     "copy_source_to_sink",
+    "render_html_preview",
     "render_pngs",
     "render_pptx",
 ]

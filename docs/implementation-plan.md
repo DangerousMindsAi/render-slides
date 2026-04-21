@@ -238,6 +238,17 @@
   - local file read/write
   - HTTP `GET` + `PUT`/`POST`
   - S3 read/write (with mock/localstack in CI where practical)
+
+## 13) Incremental Progress Log
+
+### 2026-04-20
+- ✅ Added deterministic template-body consumption in the Rust core via a preview HTML pipeline (`render_html_preview`) with slot substitution and escaping.
+- ✅ Extended manifest code generation to include per-layout template bodies so the preview path and future renderers share one canonical template source.
+- ✅ Added Rust + Python tests covering HTML preview substitution and escaping behavior.
+- ⏭️ Next:
+  1. Emit shared theme tokens into preview HTML for closer ILM-aligned defaults.
+  2. Add first golden fixtures that can be used by both HTML/PNG and PPTX parity checks.
+  3. Scaffold parity harness commands and CI wiring around those fixtures.
 - Validation contract tests asserting error payload quality for LLM retry:
   - deterministic error codes and stable field paths
   - actionable `suggested_fix` text
