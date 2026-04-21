@@ -252,11 +252,15 @@
 - ✅ Replaced `render_pngs` placeholder bytes with `hyper_render` rasterization of rendered slide HTML, emitting real 1366x768 PNGs per slide.
 - ✅ Replaced placeholder PPTX payload emission with a deterministic OpenXML package generator that writes valid `.pptx` ZIP parts (`[Content_Types].xml`, relationships, presentation + slide XML, and media parts).
 - ✅ Added layout-to-geometry/text mapping for all v1 layouts and `image_focus` image-slot media embedding in PPTX output.
+- ✅ Upgraded parity harness to run renderer-backed checks (`--checks html,png,pptx`) and compare golden PNG/PPTX fixtures in addition to HTML previews.
+- ✅ Added PNG diff thresholds (`--png-rmse-threshold`, `--png-diff-ratio-threshold`) and per-fixture metrics artifacts for CI debugging.
+- ✅ Updated parity CI to execute HTML + PNG + PPTX checks and upload mismatch artifacts by check type.
+- ✅ Switched renderer golden fixtures to Base64 text snapshots (`*.render.png.base64`, `*.render.pptx.base64`) to avoid binary-file PR tooling limitations.
+- ✅ Added migration helper script (`scripts/migrate_renderer_fixtures_to_base64.py`) to convert accidentally-generated binary renderer fixtures into Base64 text fixtures.
 - ⏭️ Next:
-  1. Add PNG and PPTX artifact generation hooks to parity harness now that `render_pngs` emits real image outputs.
-  2. Implement renderer-backed parity comparisons for `title_body` as the first end-to-end PNG/PPTX slice.
-  3. Add image-diff thresholds and renderer artifact publication to CI once PNG/PPTX outputs exist.
-  4. Calibrate shared geometry/token mapping to tighten HTML/PPTX visual parity.
+  1. Calibrate shared geometry/token mapping to tighten HTML/PPTX visual parity.
+  2. Add optional PPTX-to-image export parity mode for visual diffs against PPTX-derived renders.
+  3. Expand fixture coverage with more multi-slide and media-heavy decks to harden regression detection.
 
 ### 2026-04-20
 - ✅ Added deterministic template-body consumption in the Rust core via a preview HTML pipeline (`render_html_preview`) with slot substitution and escaping.

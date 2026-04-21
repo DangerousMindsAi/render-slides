@@ -4,7 +4,7 @@
       "layout": "image_focus",
       "slots": {
         "title": "Product Preview",
-        "image": "https://example.com/preview.png",
+        "image": "fixtures/parity/assets/preview-placeholder.svg",
         "caption": "Updated analytics dashboard"
       }
     }

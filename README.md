@@ -24,6 +24,7 @@ This repository currently contains:
 - a one-command build/test script at `scripts/test-python-build.sh`
 - a one-command Rustdoc generation script at `scripts/generate-docs.sh`
 - CI parity harness workflow with mismatch artifact uploads at `.github/workflows/parity-harness.yml`
+- renderer-backed parity fixtures and thresholds for HTML preview + PNG + PPTX outputs via `scripts/parity_harness.py`
 
 ## Prerequisites
 
@@ -121,11 +122,35 @@ The generated docs entry point will be:
 target/doc/render_slides/index.html
 ```
 
+## Run the parity harness
+
+Validate golden fixtures (HTML + renderer artifacts) locally:
+
+```bash
+python scripts/parity_harness.py \
+  --checks html,png,pptx \
+  --png-rmse-threshold 0.0 \
+  --png-diff-ratio-threshold 0.0 \
+  --artifacts-dir artifacts/parity
+```
+
+Refresh fixtures after intentional rendering changes:
+
+```bash
+python scripts/parity_harness.py --checks html,png,pptx --update
+```
+
+> Note: renderer golden fixtures are stored as text-safe Base64 files (`*.render.png.base64`, `*.render.pptx.base64`) so PR tooling that rejects binary files can still create PRs cleanly.
+>
+> If someone accidentally generates binary renderer fixtures, run:
+>
+> ```bash
+> python scripts/migrate_renderer_fixtures_to_base64.py
+> ```
+
 ## Remaining gaps
 
-- `render_pngs` now emits real slide image snapshots, but parity harness PNG diffing/golden-image checks are not wired yet.
 - PPTX output currently uses deterministic layout mapping for v1 templates; full ILM-shared geometry parity with HTML output is still in progress.
-- The parity harness currently checks deterministic HTML previews only; it does not yet diff renderer-produced PNGs or PPTX-derived exports.
 - Runtime-extensible Python registration hooks (`register_source_handler`, `register_sink_handler`) are still planned but not yet exposed.
 - ILM-first dual-emitter architecture (shared absolute geometry consumed by both HTML and PPTX emitters) remains to be implemented.
 
@@ -139,7 +164,7 @@ target/doc/render_slides/index.html
 - ✅ Template bodies are now consumed by a deterministic HTML preview pipeline (`render_html_preview`) with HTML escaping and slot substitution.
 - ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
 - ✅ Golden parity fixtures now cover all v1 layouts with deterministic preview snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
-- ✅ Parity harness checks now run in CI and upload mismatch artifacts (`expected`/`actual`/`diff`) for debugging.
+- ✅ Parity harness now validates HTML + renderer-backed PNG/PPTX outputs with configurable PNG diff thresholds and CI artifact uploads.
 - ✅ `render_pngs` now emits real HTML-to-image slide PNG snapshots (1366x768) via `hyper_render` instead of placeholder 1x1 bytes.
 - ✅ Renderer entrypoint APIs now emit deterministic output artifacts (`render_pngs`, `render_pptx`) rather than raising `NotImplementedError`.
-- ⏭️ Next: wire PNG/PPTX golden parity diffing around renderer outputs and calibrate geometry tokens for tighter HTML/PPTX visual parity.
+- ⏭️ Next: calibrate geometry tokens for tighter HTML/PPTX visual parity and add optional PPTX-to-image parity export checks in CI.
