@@ -6,14 +6,16 @@
 //! - introspecting editable IR paths and operations, and
 //! - copying bytes across local or HTTP(S) transports.
 //!
-//! Rendering entry points now emit deterministic placeholder artifacts while
-//! full rendering backends are still being integrated.
+//! Rendering entry points now emit deterministic artifacts; PNG output is
+//! rasterized from rendered slide HTML, while PPTX output is still
+//! placeholder-only.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
+use hyper_render::{render_to_png, Config};
 use jsonschema::{error::ValidationErrorKind, Draft, Validator};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -480,8 +482,12 @@ fn render_theme_style_block(theme: Option<&serde_json::Map<String, Value>>) -> S
 }
 
 fn render_preview_html(ir_json: &str) -> Result<String, String> {
-    let parsed: Value = serde_json::from_str(ir_json).map_err(|e| format!("Invalid JSON: {e}"))?;
-    validate_ir(&parsed)?;
+    let parsed = parse_ir(ir_json)?;
+    render_preview_html_from_parsed(&parsed)
+}
+
+fn render_preview_html_from_parsed(parsed: &Value) -> Result<String, String> {
+    validate_ir(parsed)?;
 
     let templates = template_registry();
     let slides = parsed
@@ -530,6 +536,57 @@ fn render_preview_html(ir_json: &str) -> Result<String, String> {
     Ok(html)
 }
 
+fn build_single_slide_html_document(
+    slide: &Value,
+    theme: Option<&serde_json::Map<String, Value>>,
+    templates: &BTreeMap<&'static str, SlideTemplate>,
+    slide_index: usize,
+) -> Result<String, String> {
+    let layout = slide
+        .get("layout")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("ValidationError: missing layout at $.slides[{slide_index}]."))?;
+    let template = templates
+        .get(layout)
+        .ok_or_else(|| format!("RenderError: no template registered for layout '{layout}'"))?;
+    let slot_values = slide
+        .get("slots")
+        .and_then(Value::as_object)
+        .ok_or_else(|| format!("ValidationError: missing slots at $.slides[{slide_index}].slots."))?;
+
+    let mut section = template.body.to_string();
+    for slot_name in &template.slot_names {
+        let slot_path = format!("{{{{ slide.slots.{slot_name} }}}}");
+        let slot_value = normalize_slot_text(slot_values.get(slot_name));
+        section = section.replace(&slot_path, &html_escape(&slot_value));
+    }
+
+    let mut html = String::new();
+    html.push_str("<!doctype html>\n<html>\n  <head>\n");
+    html.push_str(&render_theme_style_block(theme));
+    html.push_str("    <style>\n");
+    html.push_str("      html, body {\n");
+    html.push_str("        width: 1366px;\n");
+    html.push_str("        height: 768px;\n");
+    html.push_str("      }\n");
+    html.push_str("      body {\n");
+    html.push_str("        overflow: hidden;\n");
+    html.push_str("        box-sizing: border-box;\n");
+    html.push_str("      }\n");
+    html.push_str("      .slide {\n");
+    html.push_str("        width: 100%;\n");
+    html.push_str("        height: 100%;\n");
+    html.push_str("        box-sizing: border-box;\n");
+    html.push_str("      }\n");
+    html.push_str("    </style>\n");
+    html.push_str("  </head>\n  <body>\n");
+    html.push_str("    ");
+    html.push_str(&section);
+    html.push('\n');
+    html.push_str("  </body>\n</html>\n");
+    Ok(html)
+}
+
 fn parse_ir(ir_json: &str) -> Result<Value, String> {
     let parsed: Value = serde_json::from_str(ir_json).map_err(|e| format!("Invalid JSON: {e}"))?;
     validate_ir(&parsed)?;
@@ -570,15 +627,9 @@ fn slide_sink_uri(base_output_target: &str, filename: &str) -> Result<String, St
     }
 }
 
-fn tiny_placeholder_png() -> &'static [u8] {
-    // 1x1 transparent PNG.
-    &[
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
-        0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
-        0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78,
-        0x9C, 0x63, 0x60, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE5, 0x27, 0xD4, 0xA2, 0x00,
-        0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
-    ]
+fn rasterize_html_to_png_bytes(html: &str) -> Result<Vec<u8>, String> {
+    let config = Config::new().width(1366).height(768);
+    render_to_png(html, config).map_err(|e| format!("PNG render error: {e}"))
 }
 
 fn build_placeholder_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
@@ -639,16 +690,21 @@ fn render_html_preview(ir_json: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
-/// Writes one deterministic placeholder PNG file per slide to the output target.
+/// Renders one slide PNG image per IR slide to the output target.
 fn render_pngs(ir_json: &str, output_target: &str) -> PyResult<()> {
     let parsed = parse_ir(ir_json).map_err(PyValueError::new_err)?;
     let slides = parsed
         .get("slides")
         .and_then(Value::as_array)
         .ok_or_else(|| PyValueError::new_err("ValidationError: expected $.slides to be an array."))?;
+    let templates = template_registry();
+    let theme = parsed.get("theme").and_then(Value::as_object);
 
     let router = transport::TransportRouter::new();
-    for (index, _) in slides.iter().enumerate() {
+    for (index, slide) in slides.iter().enumerate() {
+        let slide_html = build_single_slide_html_document(slide, theme, &templates, index)
+            .map_err(PyValueError::new_err)?;
+        let png_bytes = rasterize_html_to_png_bytes(&slide_html).map_err(PyValueError::new_err)?;
         let filename = format!("slide-{:03}.png", index + 1);
         let sink_uri =
             slide_sink_uri(output_target, &filename).map_err(PyValueError::new_err)?;
@@ -656,7 +712,7 @@ fn render_pngs(ir_json: &str, output_target: &str) -> PyResult<()> {
             .open_write(&sink_uri)
             .map_err(|e| PyValueError::new_err(format!("Transport sink error: {e}")))?;
         writer
-            .write_all(tiny_placeholder_png())
+            .write_all(&png_bytes)
             .map_err(|e| PyValueError::new_err(format!("Write error: {e}")))?;
         writer
             .flush()

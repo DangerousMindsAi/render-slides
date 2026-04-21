@@ -17,7 +17,7 @@ This repository currently contains:
 - preview HTML theme-token emission with deterministic CSS custom properties (default tokens + optional IR theme overrides)
 - layout-aware validation errors with required/optional/provided slot summaries and deterministic `suggested_fix` guidance
 - deterministic renderer entrypoint scaffolding for artifact output:
-  - `render_pngs` now emits one deterministic placeholder PNG per slide
+  - `render_pngs` now rasterizes HTML slide snapshots into real 1366x768 PNG files (one per slide) using `hyper_render` (Chromium-free)
   - `render_pptx` now emits a deterministic placeholder payload to a `.pptx` sink target
 - expanded parity fixtures + harness checks across all v1 layouts at `fixtures/parity/` and `scripts/parity_harness.py`
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
@@ -123,7 +123,7 @@ target/doc/render_slides/index.html
 
 ## Remaining gaps
 
-- `render_pngs` currently writes deterministic placeholder PNG bytes (1x1 transparent image) and does **not** rasterize slide HTML/ILM content yet.
+- `render_pngs` now emits real slide image snapshots, but parity harness PNG diffing/golden-image checks are not wired yet.
 - `render_pptx` currently writes a deterministic placeholder payload and does **not** generate a standards-compliant OpenXML `.pptx` package yet.
 - The parity harness currently checks deterministic HTML previews only; it does not yet diff renderer-produced PNGs or PPTX-derived exports.
 - Runtime-extensible Python registration hooks (`register_source_handler`, `register_sink_handler`) are still planned but not yet exposed.
@@ -140,5 +140,6 @@ target/doc/render_slides/index.html
 - ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
 - ✅ Golden parity fixtures now cover all v1 layouts with deterministic preview snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
 - ✅ Parity harness checks now run in CI and upload mismatch artifacts (`expected`/`actual`/`diff`) for debugging.
+- ✅ `render_pngs` now emits real HTML-to-image slide PNG snapshots (1366x768) via `hyper_render` instead of placeholder 1x1 bytes.
 - ✅ Renderer entrypoint APIs now emit deterministic output artifacts (`render_pngs`, `render_pptx`) rather than raising `NotImplementedError`.
-- ⏭️ Next: replace placeholder renderer artifacts with real HTML-to-PNG rasterization and ppt-rs/OpenXML PPTX emission, then bridge parity harness outputs to rendered PNG/PPTX checks.
+- ⏭️ Next: wire PNG golden/parity diffing around renderer outputs and replace placeholder `render_pptx` with ppt-rs/OpenXML emission.
