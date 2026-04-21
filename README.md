@@ -19,6 +19,7 @@ This repository currently contains:
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
 - a one-command Rustdoc generation script at `scripts/generate-docs.sh`
+- CI parity harness workflow with mismatch artifact uploads at `.github/workflows/parity-harness.yml`
 
 ## Prerequisites
 
@@ -119,8 +120,8 @@ target/doc/render_slides/index.html
 ## Next steps
 
 - Add PNG and PPTX artifact generation hooks to the parity harness when renderer entrypoints land.
-- Wire the parity harness into CI to publish fixture diffs as build artifacts.
 - Implement first renderer-backed parity pass for `title_body` in both PNG and PPTX outputs.
+- Extend parity CI to include renderer-backed checks and visual-diff thresholds once image/PPTX emitters are wired.
 
 ## Implementation plan status
 
@@ -131,4 +132,5 @@ target/doc/render_slides/index.html
 - ✅ Template bodies are now consumed by a deterministic HTML preview pipeline (`render_html_preview`) with HTML escaping and slot substitution.
 - ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
 - ✅ Golden parity fixtures now cover all v1 layouts with deterministic preview snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
+- ✅ Parity harness checks now run in CI and upload mismatch artifacts (`expected`/`actual`/`diff`) for debugging.
 - ⏭️ Next: bridge parity harness outputs to real PNG and PPTX renderer pipelines once those entrypoints are implemented.
