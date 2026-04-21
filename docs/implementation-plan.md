@@ -249,11 +249,12 @@
 - ✅ Added parity harness CI workflow (`.github/workflows/parity-harness.yml`) and artifact upload plumbing for mismatch diagnostics.
 - ✅ Extended parity harness with `--artifacts-dir` output to persist expected/actual HTML and unified diffs on failures.
 - ✅ Extended layout-aware semantic validation errors with richer corrective metadata (`expected_required`, `optional`, `provided`, deterministic `suggested_fix`) for retry-loop friendly diagnostics.
+- ✅ Replaced `render_pngs` placeholder bytes with `hyper_render` rasterization of rendered slide HTML, emitting real 1366x768 PNGs per slide.
 - ⏭️ Next:
-  1. Implement renderer entrypoints (`render_pngs`, `render_pptx`) and wire first artifact outputs.
-  2. Add PNG and PPTX artifact generation hooks to parity harness once renderers are implemented.
-  3. Implement renderer-backed parity comparisons for `title_body` as the first end-to-end PNG/PPTX slice.
-  4. Add image-diff thresholds and renderer artifact publication to CI once PNG/PPTX outputs exist.
+  1. Add PNG and PPTX artifact generation hooks to parity harness now that `render_pngs` emits real image outputs.
+  2. Implement renderer-backed parity comparisons for `title_body` as the first end-to-end PNG/PPTX slice.
+  3. Add image-diff thresholds and renderer artifact publication to CI once PNG/PPTX outputs exist.
+  4. Replace placeholder `render_pptx` payload emission with standards-compliant OpenXML generation.
 
 ### 2026-04-20
 - ✅ Added deterministic template-body consumption in the Rust core via a preview HTML pipeline (`render_html_preview`) with slot substitution and escaping.
@@ -340,7 +341,7 @@
 
 ## 13) Implementation Status and Immediate Next Steps
 
-### Status Update (April 20, 2026)
+### Status Update (April 21, 2026)
 - ✅ Project scaffolding in place for Python + Rust (`maturin` + `pyo3`).
 - ✅ JSON Schema validation and refinement/introspection APIs are implemented and tested.
 - ✅ Template manifest generation is active at build time.
@@ -350,9 +351,10 @@
 - ✅ Layout-aware semantic validation now enforces required slot sets for each v1 layout.
 - ✅ HTML preview now emits deterministic shared theme tokens and accepts IR theme overrides for baseline styling parity work.
 - ✅ First parity fixture + harness plumbing now exists for deterministic preview HTML checks.
-- ⏳ Rendering backends (`render_pngs`, `render_pptx`) remain placeholders.
+- ✅ PNG backend now rasterizes rendered slide HTML into real per-slide PNG images.
+- ⏳ PPTX backend remains placeholder output.
 
 ### Immediate Next Steps
-1. Implement renderer entrypoints and attach PNG/PPTX generation to fixture comparisons.
+1. Attach PNG/PPTX generation to fixture comparisons.
 2. Extend parity CI to run renderer-backed checks with image/PPTX diff artifact uploads.
 3. Add renderer-level golden tests for `render_pngs` / `render_pptx` once emitters are wired.

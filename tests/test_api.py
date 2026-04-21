@@ -329,8 +329,15 @@ def test_render_pngs_writes_one_file_per_slide(tmp_path):
     slide_2 = output_dir / "slide-002.png"
     assert slide_1.exists()
     assert slide_2.exists()
-    assert slide_1.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
-    assert slide_2.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    slide_1_bytes = slide_1.read_bytes()
+    slide_2_bytes = slide_2.read_bytes()
+    assert slide_1_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    assert slide_2_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    # PNG width/height live at bytes 16..24 of the IHDR chunk.
+    assert int.from_bytes(slide_1_bytes[16:20], byteorder="big") == 1366
+    assert int.from_bytes(slide_1_bytes[20:24], byteorder="big") == 768
+    assert int.from_bytes(slide_2_bytes[16:20], byteorder="big") == 1366
+    assert int.from_bytes(slide_2_bytes[20:24], byteorder="big") == 768
 
 
 def test_render_pptx_writes_placeholder_payload(tmp_path):
