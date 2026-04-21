@@ -314,14 +314,34 @@ def test_render_html_preview_matches_golden_fixture(fixture_stem):
     assert html == expected_html
 
 
-def test_render_pngs_placeholder_raises_not_implemented():
-    with pytest.raises(NotImplementedError):
-        render_slides.render_pngs('{"slides": []}', "file:///tmp/slides")
+def test_render_pngs_writes_one_file_per_slide(tmp_path):
+    output_dir = tmp_path / "slides"
+    ir = {
+        "slides": [
+            {"layout": "title", "slots": {"title": "A", "subtitle": "B"}},
+            {"layout": "quote", "slots": {"quote": "Q", "attribution": "Auth"}},
+        ]
+    }
+
+    render_slides.render_pngs(json.dumps(ir), str(output_dir))
+
+    slide_1 = output_dir / "slide-001.png"
+    slide_2 = output_dir / "slide-002.png"
+    assert slide_1.exists()
+    assert slide_2.exists()
+    assert slide_1.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert slide_2.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
-def test_render_pptx_placeholder_raises_not_implemented():
-    with pytest.raises(NotImplementedError):
-        render_slides.render_pptx('{"slides": []}', "file:///tmp/deck.pptx")
+def test_render_pptx_writes_placeholder_payload(tmp_path):
+    output_path = tmp_path / "deck.pptx"
+    ir = {"slides": [{"layout": "title", "slots": {"title": "A", "subtitle": "B"}}]}
+
+    render_slides.render_pptx(json.dumps(ir), str(output_path))
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "placeholder"
+    assert payload["slide_count"] == 1
 
 
 def test_list_paths_supports_wildcards_by_default():

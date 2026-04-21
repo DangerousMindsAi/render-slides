@@ -6,17 +6,20 @@
 //! - introspecting editable IR paths and operations, and
 //! - copying bytes across local or HTTP(S) transports.
 //!
-//! Rendering entry points are intentionally scaffolded and return
-//! `NotImplementedError` until rendering backends are integrated.
+//! Rendering entry points now emit deterministic placeholder artifacts while
+//! full rendering backends are still being integrated.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use jsonschema::{error::ValidationErrorKind, Draft, Validator};
-use pyo3::exceptions::{PyNotImplementedError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde::Serialize;
 use serde_json::Value;
+use url::Url;
 
 pub mod transport;
 
@@ -527,6 +530,72 @@ fn render_preview_html(ir_json: &str) -> Result<String, String> {
     Ok(html)
 }
 
+fn parse_ir(ir_json: &str) -> Result<Value, String> {
+    let parsed: Value = serde_json::from_str(ir_json).map_err(|e| format!("Invalid JSON: {e}"))?;
+    validate_ir(&parsed)?;
+    Ok(parsed)
+}
+
+fn slide_sink_uri(base_output_target: &str, filename: &str) -> Result<String, String> {
+    match Url::parse(base_output_target) {
+        Ok(url) => match url.scheme() {
+            "http" | "https" | "s3" => {
+                let mut base = base_output_target.to_string();
+                if !base.ends_with('/') {
+                    base.push('/');
+                }
+                base.push_str(filename);
+                Ok(base)
+            }
+            "file" => {
+                let path = url
+                    .to_file_path()
+                    .map_err(|_| format!("Invalid file URI output target: {base_output_target}"))?;
+                std::fs::create_dir_all(&path)
+                    .map_err(|e| format!("Failed to create output directory '{path:?}': {e}"))?;
+                let file_path = path.join(filename);
+                Url::from_file_path(&file_path)
+                    .map_err(|_| format!("Failed to build file URI for '{file_path:?}'"))
+                    .map(|u| u.to_string())
+            }
+            other => Err(format!("Unsupported output target scheme for PNG rendering: {other}")),
+        },
+        Err(_) => {
+            let base_path = PathBuf::from(base_output_target);
+            std::fs::create_dir_all(&base_path).map_err(|e| {
+                format!("Failed to create output directory '{base_output_target}': {e}")
+            })?;
+            Ok(base_path.join(filename).to_string_lossy().to_string())
+        }
+    }
+}
+
+fn tiny_placeholder_png() -> &'static [u8] {
+    // 1x1 transparent PNG.
+    &[
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+        0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
+        0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78,
+        0x9C, 0x63, 0x60, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE5, 0x27, 0xD4, 0xA2, 0x00,
+        0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ]
+}
+
+fn build_placeholder_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
+    let slide_count = parsed
+        .get("slides")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let summary = serde_json::json!({
+        "generator": "render-slides placeholder pptx emitter",
+        "slide_count": slide_count,
+        "status": "placeholder",
+        "next_step": "replace placeholder bundle with ppt-rs-backed OpenXML generation"
+    });
+    serde_json::to_vec_pretty(&summary)
+        .map_err(|e| format!("Failed to serialize PPTX placeholder bytes: {e}"))
+}
+
 #[pyfunction]
 /// Copies bytes from a source URI to a sink URI using the transport router.
 fn copy_source_to_sink(source_uri: &str, sink_uri: &str) -> PyResult<()> {
@@ -570,19 +639,48 @@ fn render_html_preview(ir_json: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
-/// Placeholder API for PNG rendering while the renderer is not yet implemented.
-fn render_pngs(_ir_json: &str, _output_target: &str) -> PyResult<()> {
-    Err(PyNotImplementedError::new_err(
-        "PNG rendering is not implemented yet. This scaffold only provides API placeholders.",
-    ))
+/// Writes one deterministic placeholder PNG file per slide to the output target.
+fn render_pngs(ir_json: &str, output_target: &str) -> PyResult<()> {
+    let parsed = parse_ir(ir_json).map_err(PyValueError::new_err)?;
+    let slides = parsed
+        .get("slides")
+        .and_then(Value::as_array)
+        .ok_or_else(|| PyValueError::new_err("ValidationError: expected $.slides to be an array."))?;
+
+    let router = transport::TransportRouter::new();
+    for (index, _) in slides.iter().enumerate() {
+        let filename = format!("slide-{:03}.png", index + 1);
+        let sink_uri =
+            slide_sink_uri(output_target, &filename).map_err(PyValueError::new_err)?;
+        let mut writer = router
+            .open_write(&sink_uri)
+            .map_err(|e| PyValueError::new_err(format!("Transport sink error: {e}")))?;
+        writer
+            .write_all(tiny_placeholder_png())
+            .map_err(|e| PyValueError::new_err(format!("Write error: {e}")))?;
+        writer
+            .flush()
+            .map_err(|e| PyValueError::new_err(format!("Flush error: {e}")))?;
+    }
+    Ok(())
 }
 
 #[pyfunction]
-/// Placeholder API for PPTX rendering while the renderer is not yet implemented.
-fn render_pptx(_ir_json: &str, _output_target: &str) -> PyResult<()> {
-    Err(PyNotImplementedError::new_err(
-        "PPTX rendering is not implemented yet. This scaffold only provides API placeholders.",
-    ))
+/// Writes a deterministic placeholder PPTX payload to the output target.
+fn render_pptx(ir_json: &str, output_target: &str) -> PyResult<()> {
+    let parsed = parse_ir(ir_json).map_err(PyValueError::new_err)?;
+    let bytes = build_placeholder_pptx_bytes(&parsed).map_err(PyValueError::new_err)?;
+    let router = transport::TransportRouter::new();
+    let mut writer = router
+        .open_write(output_target)
+        .map_err(|e| PyValueError::new_err(format!("Transport sink error: {e}")))?;
+    writer
+        .write_all(&bytes)
+        .map_err(|e| PyValueError::new_err(format!("Write error: {e}")))?;
+    writer
+        .flush()
+        .map_err(|e| PyValueError::new_err(format!("Flush error: {e}")))?;
+    Ok(())
 }
 
 #[pymodule]

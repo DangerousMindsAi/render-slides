@@ -16,6 +16,9 @@ This repository currently contains:
 - a deterministic HTML preview API (`render_html_preview`) that consumes layout template bodies and materializes slide slot values
 - preview HTML theme-token emission with deterministic CSS custom properties (default tokens + optional IR theme overrides)
 - layout-aware validation errors with required/optional/provided slot summaries and deterministic `suggested_fix` guidance
+- deterministic renderer entrypoint scaffolding for artifact output:
+  - `render_pngs` now emits one deterministic placeholder PNG per slide
+  - `render_pptx` now emits a deterministic placeholder payload to a `.pptx` sink target
 - expanded parity fixtures + harness checks across all v1 layouts at `fixtures/parity/` and `scripts/parity_harness.py`
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
@@ -118,11 +121,13 @@ The generated docs entry point will be:
 target/doc/render_slides/index.html
 ```
 
-## Next steps
+## Remaining gaps
 
-- Implement renderer entrypoints for PNG and PPTX output generation (`render_pngs`, `render_pptx`).
-- Add PNG and PPTX artifact generation hooks to the parity harness once renderer entrypoints land.
-- Extend parity CI to include renderer-backed checks and visual-diff thresholds once image/PPTX emitters are wired.
+- `render_pngs` currently writes deterministic placeholder PNG bytes (1x1 transparent image) and does **not** rasterize slide HTML/ILM content yet.
+- `render_pptx` currently writes a deterministic placeholder payload and does **not** generate a standards-compliant OpenXML `.pptx` package yet.
+- The parity harness currently checks deterministic HTML previews only; it does not yet diff renderer-produced PNGs or PPTX-derived exports.
+- Runtime-extensible Python registration hooks (`register_source_handler`, `register_sink_handler`) are still planned but not yet exposed.
+- ILM-first dual-emitter architecture (shared absolute geometry consumed by both HTML and PPTX emitters) remains to be implemented.
 
 ## Implementation plan status
 
@@ -135,4 +140,5 @@ target/doc/render_slides/index.html
 - ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
 - ✅ Golden parity fixtures now cover all v1 layouts with deterministic preview snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
 - ✅ Parity harness checks now run in CI and upload mismatch artifacts (`expected`/`actual`/`diff`) for debugging.
-- ⏭️ Next: implement renderer entrypoints, then bridge parity harness outputs to real PNG and PPTX pipelines.
+- ✅ Renderer entrypoint APIs now emit deterministic output artifacts (`render_pngs`, `render_pptx`) rather than raising `NotImplementedError`.
+- ⏭️ Next: replace placeholder renderer artifacts with real HTML-to-PNG rasterization and ppt-rs/OpenXML PPTX emission, then bridge parity harness outputs to rendered PNG/PPTX checks.
