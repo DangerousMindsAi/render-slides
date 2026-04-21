@@ -18,7 +18,7 @@ This repository currently contains:
 - layout-aware validation errors with required/optional/provided slot summaries and deterministic `suggested_fix` guidance
 - deterministic renderer entrypoint scaffolding for artifact output:
   - `render_pngs` now rasterizes HTML slide snapshots into real 1366x768 PNG files (one per slide) using `hyper_render` (Chromium-free)
-  - `render_pptx` now emits a deterministic placeholder payload to a `.pptx` sink target
+  - `render_pptx` now emits a real standards-compliant OpenXML `.pptx` package with deterministic slide/text mapping and `image_focus` media embedding
 - expanded parity fixtures + harness checks across all v1 layouts at `fixtures/parity/` and `scripts/parity_harness.py`
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
@@ -124,7 +124,7 @@ target/doc/render_slides/index.html
 ## Remaining gaps
 
 - `render_pngs` now emits real slide image snapshots, but parity harness PNG diffing/golden-image checks are not wired yet.
-- `render_pptx` currently writes a deterministic placeholder payload and does **not** generate a standards-compliant OpenXML `.pptx` package yet.
+- PPTX output currently uses deterministic layout mapping for v1 templates; full ILM-shared geometry parity with HTML output is still in progress.
 - The parity harness currently checks deterministic HTML previews only; it does not yet diff renderer-produced PNGs or PPTX-derived exports.
 - Runtime-extensible Python registration hooks (`register_source_handler`, `register_sink_handler`) are still planned but not yet exposed.
 - ILM-first dual-emitter architecture (shared absolute geometry consumed by both HTML and PPTX emitters) remains to be implemented.
@@ -142,4 +142,4 @@ target/doc/render_slides/index.html
 - ✅ Parity harness checks now run in CI and upload mismatch artifacts (`expected`/`actual`/`diff`) for debugging.
 - ✅ `render_pngs` now emits real HTML-to-image slide PNG snapshots (1366x768) via `hyper_render` instead of placeholder 1x1 bytes.
 - ✅ Renderer entrypoint APIs now emit deterministic output artifacts (`render_pngs`, `render_pptx`) rather than raising `NotImplementedError`.
-- ⏭️ Next: wire PNG golden/parity diffing around renderer outputs and replace placeholder `render_pptx` with ppt-rs/OpenXML emission.
+- ⏭️ Next: wire PNG/PPTX golden parity diffing around renderer outputs and calibrate geometry tokens for tighter HTML/PPTX visual parity.

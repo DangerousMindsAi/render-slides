@@ -51,9 +51,9 @@
 - Write slides through streaming sinks so outputs can go directly to local files, HTTP uploads, or S3 objects.
 
 ### PPTX Path
-- Convert resolved slide model into `ppt-rs` slide objects.
-- Apply equivalent geometry, text styles, and assets.
-- Emit one `.pptx` bundle via a streaming writer (local file / HTTP / S3 sink).
+- Convert resolved slide model into standards-compliant OpenXML slide parts.
+- Apply equivalent geometry, text styles, and assets (including image embedding and relationships).
+- Emit one `.pptx` bundle via a sink writer (local file / HTTP / S3 sink).
 
 ### Source/Destination Adapter Layer
 - Define a stable transport interface:
@@ -250,11 +250,13 @@
 - ✅ Extended parity harness with `--artifacts-dir` output to persist expected/actual HTML and unified diffs on failures.
 - ✅ Extended layout-aware semantic validation errors with richer corrective metadata (`expected_required`, `optional`, `provided`, deterministic `suggested_fix`) for retry-loop friendly diagnostics.
 - ✅ Replaced `render_pngs` placeholder bytes with `hyper_render` rasterization of rendered slide HTML, emitting real 1366x768 PNGs per slide.
+- ✅ Replaced placeholder PPTX payload emission with a deterministic OpenXML package generator that writes valid `.pptx` ZIP parts (`[Content_Types].xml`, relationships, presentation + slide XML, and media parts).
+- ✅ Added layout-to-geometry/text mapping for all v1 layouts and `image_focus` image-slot media embedding in PPTX output.
 - ⏭️ Next:
   1. Add PNG and PPTX artifact generation hooks to parity harness now that `render_pngs` emits real image outputs.
   2. Implement renderer-backed parity comparisons for `title_body` as the first end-to-end PNG/PPTX slice.
   3. Add image-diff thresholds and renderer artifact publication to CI once PNG/PPTX outputs exist.
-  4. Replace placeholder `render_pptx` payload emission with standards-compliant OpenXML generation.
+  4. Calibrate shared geometry/token mapping to tighten HTML/PPTX visual parity.
 
 ### 2026-04-20
 - ✅ Added deterministic template-body consumption in the Rust core via a preview HTML pipeline (`render_html_preview`) with slot substitution and escaping.
