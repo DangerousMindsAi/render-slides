@@ -241,6 +241,15 @@
 
 ## 13) Incremental Progress Log
 
+### 2026-04-21
+- ✅ Added shared theme token emission in `render_html_preview` (deterministic defaults plus optional IR overrides) so preview output now carries baseline typography/spacing/color tokens.
+- ✅ Added first golden parity fixture pair under `fixtures/parity/` for deterministic HTML preview validation.
+- ✅ Scaffolded an initial parity harness script (`scripts/parity_harness.py`) with `--update` and check modes for fixture workflows.
+- ⏭️ Next:
+  1. Extend fixture set across remaining layouts (`title`, `two_column`, `section`, `image_focus`, `quote`, `comparison`).
+  2. Add PNG and PPTX artifact generation hooks to parity harness once renderers are implemented.
+  3. Wire parity-harness checks/diff artifacts into CI.
+
 ### 2026-04-20
 - ✅ Added deterministic template-body consumption in the Rust core via a preview HTML pipeline (`render_html_preview`) with slot substitution and escaping.
 - ✅ Extended manifest code generation to include per-layout template bodies so the preview path and future renderers share one canonical template source.
@@ -334,10 +343,12 @@
 - ✅ Transport router scaffolding (local, HTTP(S), S3-style URI mapping) is implemented with tests.
 - ✅ Operation-spec snapshot coverage now locks path + op + params + bounds for the introspection surface.
 - ✅ Layout-aware semantic validation now enforces required slot sets for each v1 layout.
+- ✅ HTML preview now emits deterministic shared theme tokens and accepts IR theme overrides for baseline styling parity work.
+- ✅ First parity fixture + harness plumbing now exists for deterministic preview HTML checks.
 - ⏳ Rendering backends (`render_pngs`, `render_pptx`) remain placeholders.
 
 ### Immediate Next Steps
-1. Start ILM/template-body wiring for deterministic HTML generation in the PNG path.
-2. Define first golden test fixtures for renderer parity work once HTML emission exists.
-3. Add initial parity-harness plumbing so HTML/PNG and PPTX outputs can be diffed from shared fixtures.
+1. Expand parity fixture coverage to the full v1 layout set.
+2. Integrate parity harness checks into CI with artifact publication on mismatches.
+3. Implement renderer entrypoints and attach PNG/PPTX generation to fixture comparisons.
 4. Extend semantic validation with per-layout optional-slot guidance and richer corrective hints for agent retry loops.

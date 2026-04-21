@@ -1,0 +1,26 @@
+{
+  "theme": {
+    "typography": {
+      "base_font_family": "'IBM Plex Sans', sans-serif",
+      "title_font_size": "52px",
+      "body_font_size": "30px"
+    },
+    "spacing": {
+      "slide_padding": "56px"
+    },
+    "colors": {
+      "background": "#f9fafb",
+      "text_primary": "#111827",
+      "text_muted": "#6b7280"
+    }
+  },
+  "slides": [
+    {
+      "layout": "title_body",
+      "slots": {
+        "title": "Q2 Product Update",
+        "body": "- Launch metrics exceeded goal\n- Onboarded 3 pilot customers"
+      }
+    }
+  ]
+}
