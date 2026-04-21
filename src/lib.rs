@@ -9,7 +9,7 @@
 //! Rendering entry points are intentionally scaffolded and return
 //! `NotImplementedError` until rendering backends are integrated.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::LazyLock;
 
 use jsonschema::{error::ValidationErrorKind, Draft, Validator};
@@ -65,6 +65,12 @@ struct OperationExample {
     effect: &'static str,
 }
 
+#[derive(Clone)]
+struct SlideTemplate {
+    body: &'static str,
+    slot_names: Vec<String>,
+}
+
 fn all_editable_paths() -> Vec<&'static str> {
     let mut unique = BTreeSet::new();
     unique.extend(generated::TEMPLATE_EDITABLE_PATHS.iter().copied());
@@ -92,6 +98,38 @@ fn operation_specs_for(path: &str) -> Option<Vec<OperationSpec>> {
     }
 
     Some(from_template)
+}
+
+fn template_registry() -> BTreeMap<&'static str, SlideTemplate> {
+    generated::TEMPLATE_DEFINITIONS
+        .iter()
+        .map(|entry| {
+            (
+                entry.layout,
+                SlideTemplate {
+                    body: entry.body,
+                    slot_names: collect_slot_names(entry.body),
+                },
+            )
+        })
+        .collect()
+}
+
+fn collect_slot_names(template_body: &str) -> Vec<String> {
+    let mut slot_names = BTreeSet::new();
+    let mut cursor = template_body;
+    let needle = "data-slot=\"";
+
+    while let Some(start_idx) = cursor.find(needle) {
+        let after = &cursor[start_idx + needle.len()..];
+        let Some(end_idx) = after.find('"') else {
+            break;
+        };
+        slot_names.insert(after[..end_idx].to_string());
+        cursor = &after[end_idx + 1..];
+    }
+
+    slot_names.into_iter().collect()
 }
 
 /// Validates the minimal contract for a render-slides IR payload.
@@ -315,6 +353,85 @@ fn get_examples(path: &str, operation: &str) -> PyResult<String> {
         .map_err(|e| PyValueError::new_err(format!("Failed to serialize operation examples: {e}")))
 }
 
+fn normalize_slot_text(slot_value: Option<&Value>) -> String {
+    let Some(value) = slot_value else {
+        return String::new();
+    };
+
+    match value {
+        Value::String(text) => text.clone(),
+        Value::Array(items) => items
+            .iter()
+            .map(|item| item.as_str().unwrap_or_default())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        _ => String::new(),
+    }
+}
+
+fn html_escape(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len());
+    for ch in input.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+fn render_preview_html(ir_json: &str) -> Result<String, String> {
+    let parsed: Value = serde_json::from_str(ir_json).map_err(|e| format!("Invalid JSON: {e}"))?;
+    validate_ir(&parsed)?;
+
+    let templates = template_registry();
+    let slides = parsed
+        .get("slides")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "ValidationError: expected $.slides to be an array.".to_string())?;
+
+    let mut rendered_sections = Vec::new();
+
+    for (index, slide) in slides.iter().enumerate() {
+        let layout = slide
+            .get("layout")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("ValidationError: missing layout at $.slides[{index}]."))?;
+        let template = templates
+            .get(layout)
+            .ok_or_else(|| format!("RenderError: no template registered for layout '{layout}'"))?;
+
+        let slot_values = slide
+            .get("slots")
+            .and_then(Value::as_object)
+            .ok_or_else(|| format!("ValidationError: missing slots at $.slides[{index}].slots."))?;
+
+        let mut section = template.body.to_string();
+        for slot_name in &template.slot_names {
+            let slot_path = format!("{{{{ slide.slots.{slot_name} }}}}");
+            let slot_value = normalize_slot_text(slot_values.get(slot_name));
+            section = section.replace(&slot_path, &html_escape(&slot_value));
+        }
+
+        rendered_sections.push(section);
+    }
+
+    let mut html = String::new();
+    html.push_str("<!doctype html>\n<html>\n  <body>\n");
+    for section in rendered_sections {
+        html.push_str("    ");
+        html.push_str(&section);
+        html.push('\n');
+    }
+    html.push_str("  </body>\n</html>\n");
+
+    Ok(html)
+}
+
 #[pyfunction]
 /// Copies bytes from a source URI to a sink URI using the transport router.
 fn copy_source_to_sink(source_uri: &str, sink_uri: &str) -> PyResult<()> {
@@ -352,6 +469,12 @@ fn copy_source_to_sink(source_uri: &str, sink_uri: &str) -> PyResult<()> {
 }
 
 #[pyfunction]
+/// Renders deterministic HTML from IR using the template manifest and slot values.
+fn render_html_preview(ir_json: &str) -> PyResult<String> {
+    render_preview_html(ir_json).map_err(PyValueError::new_err)
+}
+
+#[pyfunction]
 /// Placeholder API for PNG rendering while the renderer is not yet implemented.
 fn render_pngs(_ir_json: &str, _output_target: &str) -> PyResult<()> {
     Err(PyNotImplementedError::new_err(
@@ -377,6 +500,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(explain_operation, m)?)?;
     m.add_function(wrap_pyfunction!(get_examples, m)?)?;
     m.add_function(wrap_pyfunction!(copy_source_to_sink, m)?)?;
+    m.add_function(wrap_pyfunction!(render_html_preview, m)?)?;
     m.add_function(wrap_pyfunction!(render_pngs, m)?)?;
     m.add_function(wrap_pyfunction!(render_pptx, m)?)?;
     Ok(())
@@ -495,5 +619,40 @@ mod tests {
         });
 
         assert!(validate_ir(&parsed).is_ok());
+    }
+
+    #[test]
+    fn render_preview_html_renders_template_slot_values() {
+        let ir_json = r#"{
+            "slides": [{
+                "layout": "title_body",
+                "slots": {
+                    "title": "Roadmap",
+                    "body": "Phase 1"
+                }
+            }]
+        }"#;
+
+        let html = render_preview_html(ir_json).expect("html preview should render");
+        assert!(html.contains("layout-title-body"));
+        assert!(html.contains(">Roadmap<"));
+        assert!(html.contains(">Phase 1<"));
+    }
+
+    #[test]
+    fn render_preview_html_escapes_slot_html() {
+        let ir_json = r#"{
+            "slides": [{
+                "layout": "title_body",
+                "slots": {
+                    "title": "<script>alert(1)</script>",
+                    "body": "safe"
+                }
+            }]
+        }"#;
+
+        let html = render_preview_html(ir_json).expect("html preview should render");
+        assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+        assert!(!html.contains("<script>alert(1)</script>"));
     }
 }

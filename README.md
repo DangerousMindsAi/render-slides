@@ -13,6 +13,7 @@ This repository currently contains:
 - JSON Schema definition for the v1 IR (including `refinement_config` paths/operations/aliases) at `schemas/v1/ir.schema.json`
 - transport layer scaffolding for local files, HTTP(S), and AWS S3 URIs
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
+- a deterministic HTML preview API (`render_html_preview`) that consumes layout template bodies and materializes slide slot values
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
 - a one-command Rustdoc generation script at `scripts/generate-docs.sh`
@@ -115,8 +116,8 @@ target/doc/render_slides/index.html
 
 ## Next steps
 
-- Begin wiring template body usage into upcoming HTML/PNG rendering path while preserving deterministic output.
-- Define first golden renderer fixtures for parity baselining once deterministic HTML emission is available.
+- Extend `render_html_preview` output with shared theme tokens (typography, spacing, and color defaults) so preview HTML better matches planned renderer ILM defaults.
+- Define first golden renderer fixtures for parity baselining now that deterministic HTML emission is available.
 - Add initial parity-harness plumbing so HTML/PNG and PPTX outputs can be diffed from shared fixtures.
 
 ## Implementation plan status
@@ -125,4 +126,5 @@ target/doc/render_slides/index.html
 - ✅ Introspection path coverage now includes `section` and `image_focus` slot paths via tests.
 - ✅ Operation-spec snapshot testing now locks path + operation + params + bounds contracts for introspection.
 - ✅ Layout-aware semantic validation now enforces required slot combinations per layout before render-time.
-- ⏭️ Next: start consuming template bodies in the renderer pipeline, then add first renderer parity fixtures/harness plumbing.
+- ✅ Template bodies are now consumed by a deterministic HTML preview pipeline (`render_html_preview`) with HTML escaping and slot substitution.
+- ⏭️ Next: add shared theme token emission + first parity fixtures/harness plumbing.
