@@ -1,6 +1,7 @@
 import json
 import socket
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -250,6 +251,51 @@ def test_render_html_preview_escapes_html_in_slot_values():
 
     assert "&lt;b&gt;unsafe&lt;/b&gt;" in html
     assert "<b>unsafe</b>" not in html
+
+
+def test_render_html_preview_emits_default_theme_tokens():
+    ir = {
+        "slides": [
+            {
+                "layout": "title_body",
+                "slots": {"title": "Defaults", "body": "Theme"},
+            }
+        ]
+    }
+
+    html = render_slides.render_html_preview(json.dumps(ir))
+
+    assert "--rs-font-size-title: 48px;" in html
+    assert "--rs-color-bg: #ffffff;" in html
+
+
+def test_render_html_preview_applies_theme_overrides():
+    ir = {
+        "theme": {
+            "typography": {"body_font_size": "30px"},
+            "colors": {"background": "#101820"},
+        },
+        "slides": [
+            {
+                "layout": "title_body",
+                "slots": {"title": "Overrides", "body": "Applied"},
+            }
+        ],
+    }
+
+    html = render_slides.render_html_preview(json.dumps(ir))
+
+    assert "--rs-font-size-body: 30px;" in html
+    assert "--rs-color-bg: #101820;" in html
+
+
+def test_render_html_preview_matches_golden_fixture():
+    fixture_root = Path(__file__).resolve().parents[1] / "fixtures" / "parity"
+    ir = json.loads((fixture_root / "title_body_basic.ir.json").read_text(encoding="utf-8"))
+    expected_html = (fixture_root / "title_body_basic.preview.html").read_text(encoding="utf-8")
+
+    html = render_slides.render_html_preview(json.dumps(ir))
+    assert html == expected_html
 
 
 def test_render_pngs_placeholder_raises_not_implemented():

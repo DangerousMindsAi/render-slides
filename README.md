@@ -14,6 +14,8 @@ This repository currently contains:
 - transport layer scaffolding for local files, HTTP(S), and AWS S3 URIs
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
 - a deterministic HTML preview API (`render_html_preview`) that consumes layout template bodies and materializes slide slot values
+- preview HTML theme-token emission with deterministic CSS custom properties (default tokens + optional IR theme overrides)
+- initial parity fixtures + harness scaffolding at `fixtures/parity/` and `scripts/parity_harness.py`
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
 - a one-command Rustdoc generation script at `scripts/generate-docs.sh`
@@ -116,9 +118,9 @@ target/doc/render_slides/index.html
 
 ## Next steps
 
-- Extend `render_html_preview` output with shared theme tokens (typography, spacing, and color defaults) so preview HTML better matches planned renderer ILM defaults.
-- Define first golden renderer fixtures for parity baselining now that deterministic HTML emission is available.
-- Add initial parity-harness plumbing so HTML/PNG and PPTX outputs can be diffed from shared fixtures.
+- Extend parity fixtures from HTML-preview-only checks to include PNG and PPTX comparison artifacts once renderer entrypoints are implemented.
+- Wire the parity harness into CI to publish fixture diffs as build artifacts.
+- Implement first renderer-backed parity pass for `title_body` in both PNG and PPTX outputs.
 
 ## Implementation plan status
 
@@ -127,4 +129,6 @@ target/doc/render_slides/index.html
 - ✅ Operation-spec snapshot testing now locks path + operation + params + bounds contracts for introspection.
 - ✅ Layout-aware semantic validation now enforces required slot combinations per layout before render-time.
 - ✅ Template bodies are now consumed by a deterministic HTML preview pipeline (`render_html_preview`) with HTML escaping and slot substitution.
-- ⏭️ Next: add shared theme token emission + first parity fixtures/harness plumbing.
+- ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
+- ✅ First golden parity fixture and harness scaffolding are in place (`fixtures/parity`, `scripts/parity_harness.py`).
+- ⏭️ Next: bridge parity harness outputs to real PNG and PPTX renderer pipelines once those entrypoints are implemented.
