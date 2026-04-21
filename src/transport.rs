@@ -394,7 +394,8 @@ pub fn register_source_handler(scheme: &str, handler: &str) -> Result<(), Transp
     let normalized = normalize_custom_scheme(scheme)?;
     let (target_scheme, inner): (String, SourceHandler) = match handler {
         "local" | "file" => ("file".to_string(), Arc::new(LocalAdapter)),
-        "http" | "https" => ("http".to_string(), Arc::new(HttpAdapter::new())),
+        "http" => ("http".to_string(), Arc::new(HttpAdapter::new())),
+        "https" => ("https".to_string(), Arc::new(HttpAdapter::new())),
         "s3" => ("s3".to_string(), Arc::new(S3Adapter::new())),
         other => {
             return Err(TransportError::UnsupportedScheme(other.to_string()));
@@ -418,7 +419,8 @@ pub fn register_sink_handler(scheme: &str, handler: &str) -> Result<(), Transpor
     let normalized = normalize_custom_scheme(scheme)?;
     let (target_scheme, inner): (String, SinkHandler) = match handler {
         "local" | "file" => ("file".to_string(), Arc::new(LocalAdapter)),
-        "http" | "https" => ("http".to_string(), Arc::new(HttpAdapter::new())),
+        "http" => ("http".to_string(), Arc::new(HttpAdapter::new())),
+        "https" => ("https".to_string(), Arc::new(HttpAdapter::new())),
         "s3" => ("s3".to_string(), Arc::new(S3Adapter::new())),
         other => {
             return Err(TransportError::UnsupportedScheme(other.to_string()));
@@ -736,5 +738,12 @@ mod tests {
             .expect("read");
 
         assert_eq!(response, "payload");
+    }
+
+    #[test]
+    fn rewrite_uri_for_alias_preserves_https_target_scheme() {
+        let rewritten =
+            rewrite_uri_for_alias("custom://example.com/path", "custom", "https").expect("uri");
+        assert_eq!(rewritten, "https://example.com/path");
     }
 }

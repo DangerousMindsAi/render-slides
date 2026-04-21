@@ -813,7 +813,7 @@ fn build_single_slide_html_from_ilm(
     html.push_str(&render_theme_style_block(theme));
     html.push_str("    <style>\n      html, body { width: 1366px; height: 768px; }\n");
     html.push_str(
-        "      body { margin: 0; overflow: hidden; position: relative; box-sizing: border-box; }\n",
+        "      body { margin: 0; padding: 0; overflow: hidden; position: relative; box-sizing: border-box; }\n",
     );
     html.push_str("      .ilm-text { position: absolute; white-space: pre-wrap; }\n");
     html.push_str("      .ilm-image { position: absolute; object-fit: cover; }\n");
@@ -1295,6 +1295,21 @@ mod tests {
         let html = render_preview_html(ir_json).expect("html preview should render");
         assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(!html.contains("<script>alert(1)</script>"));
+    }
+
+    #[test]
+    fn ilm_single_slide_html_resets_body_padding_for_geometry_parity() {
+        let slide = ilm_slide_from_ir(&json!({
+            "layout": "title",
+            "slots": {
+                "title": "Quarterly Update",
+                "subtitle": "FY26"
+            }
+        }))
+        .expect("ilm slide");
+
+        let html = build_single_slide_html_from_ilm(&slide, None);
+        assert!(html.contains("body { margin: 0; padding: 0;"));
     }
 
     #[test]
