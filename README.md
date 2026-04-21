@@ -6,6 +6,7 @@
 
 This repository currently contains:
 - an implementation plan in `docs/implementation-plan.md`
+- a documentation coverage plan in `docs/documentation-plan.md`
 - Python + Rust (`maturin`/`pyo3`) project scaffolding
 - initial IR validation, schema summary, and introspection APIs (`validate`, `describe_schema`, `list_paths`, `list_operations`, `explain_operation`, `get_examples`)
 - compile-time template manifest generation from `.slide.jinja` files with YAML front matter
