@@ -9,17 +9,18 @@ Ship a complete, maintainable documentation set that supports contributors, libr
 - Baseline plan and scope definition are in place in this document.
 - Rust doc generation automation already exists via `./scripts/generate-docs.sh`.
 - Repository onboarding docs in `README.md` include Rustdoc generation and test/build commands.
+- `docs/documentation-inventory.md` now captures Rust/Python docs coverage and CI automation gaps.
+- `docs/internal-architecture.md` now documents system context, module map, data flows, debugging guidance, and contributor workflow.
+- `docs/python-api.md` now documents every symbol exported by `python/render_slides/__init__.py::__all__`, including minimal and advanced usage examples.
+- `docs/callpath-walkthroughs.md` now includes the six required API callpaths and a walkthrough coverage matrix (`W1..W6`) mapped to tests/fixtures.
 
 ### In Progress
-- Rust inline documentation exists for several public APIs and transport primitives, but coverage is not yet audited against all public items.
-- Rendering and transport behavior are implemented and tested, which unblocks writing concrete callpath walkthroughs tied to real fixtures and tests.
+- CI documentation quality gate wiring is still pending (rustdoc warnings-as-errors, link checking, runnable doc snippets/examples).
+- Rust inline documentation quality can still be improved with runnable doc examples and optional `#![deny(missing_docs)]` adoption timing.
 
 ### Not Started / Missing Artifacts
-- `docs/internal-architecture.md` has not yet been created.
-- `docs/python-api.md` has not yet been created.
-- `docs/callpath-walkthroughs.md` has not yet been created.
-- No published walkthrough coverage matrix (`W1..Wn`) exists yet.
-- No CI docs quality gate is wired yet for rustdoc warning enforcement, link checking, and runnable doc examples.
+- Dedicated docs-quality CI workflow has not yet been added.
+- Docs ownership/review guardrails (e.g., CODEOWNERS linkage/checklist policy) have not yet been added.
 
 ## Scope (Minimum Required)
 1. **Detailed function documentation** generated automatically from Rust inline docs (`///` and module-level `//!` docs).
@@ -169,19 +170,19 @@ Target matrix outcome:
 ### Phase 1: Baseline inventory (1-2 days)
 - Audit current docs and inline comments.
 - Produce "missing docs" checklist for Rust public items + Python exported API.
- - **Status:** In progress (inventory partially implied by current files, but no explicit checklist artifact yet).
+ - **Status:** Completed (see `docs/documentation-inventory.md`).
 
 ### Phase 2: Authoring + automation (2-4 days)
 - Fill rustdoc gaps.
 - Create `internal-architecture.md`, `python-api.md`, `callpath-walkthroughs.md`.
 - Add docs build/check commands to CI.
- - **Status:** Not started.
+ - **Status:** In progress (core authoring docs are complete; CI automation remains).
 
 ### Phase 3: Coverage alignment (2-3 days)
 - Create walkthrough coverage matrix.
 - Add/adjust tests for uncovered branches.
 - Validate matrix against coverage report.
- - **Status:** Not started.
+ - **Status:** In progress (matrix authored in `docs/callpath-walkthroughs.md`; coverage report automation still pending).
 
 ### Phase 4: Publish + maintain (ongoing)
 - Add docs ownership in CODEOWNERS or review checklist.
@@ -193,25 +194,16 @@ Target matrix outcome:
 
 ## Next Steps (execution order)
 
-1. **Create a concrete inventory checklist artifact** (e.g., `docs/documentation-inventory.md`) listing:
-   - all Rust public items missing docs,
-   - all Python `__all__` exports and doc/example status,
-   - CI/documentation automation gaps.
-2. **Author `docs/internal-architecture.md`** with:
-   - Mermaid/ASCII system flow,
-   - module ownership table,
-   - "where to change what" and contributor workflow sections.
-3. **Author `docs/python-api.md`** covering every symbol in `python/render_slides/__init__.py::__all__`, with minimal + advanced examples.
-4. **Author `docs/callpath-walkthroughs.md`** and include:
-   - six required callpaths,
-   - debugging tips and failure modes,
-   - coverage matrix (`W1..Wn`) mapped to tests/fixtures.
-5. **Wire docs checks into CI**:
+1. ✅ **Inventory artifact completed:** `docs/documentation-inventory.md` now tracks Rust/Python coverage and CI gaps.
+2. ✅ **Internal architecture doc completed:** `docs/internal-architecture.md` includes flow diagram, ownership map, change guide, and contributor workflow.
+3. ✅ **Python API reference completed:** `docs/python-api.md` now covers every symbol in `python/render_slides/__init__.py::__all__`.
+4. ✅ **Callpath walkthroughs completed:** `docs/callpath-walkthroughs.md` includes six required flows and a `W1..W6` coverage matrix tied to tests/fixtures.
+5. ⏭️ **Next:** wire docs checks into CI:
    - rustdoc warnings as errors,
    - docs generation script,
    - link checker,
    - runnable snippet/doctest harness for Python examples.
-6. **Add maintenance guardrails**:
+6. ⏭️ **Next:** add maintenance guardrails:
    - docs ownership/review checklist,
    - release/versioning linkage for documentation updates.
 
