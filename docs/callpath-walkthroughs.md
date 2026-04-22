@@ -11,7 +11,7 @@ This document traces each major exported API route end-to-end and maps walkthrou
 
 ### Callpath
 1. Python caller invokes `render_slides.validate(...)`.
-2. pyo3 binding in `src/lib.rs` parses JSON to `serde_json::Value`.
+2. pyo3 binding routes through `src/lib.rs` into `src/py_api.rs::validate`, which parses JSON to `serde_json::Value`.
 3. JSON Schema validator checks structural rules.
 4. Semantic validator checks required slot set for `title_body`.
 5. Function returns `"ok"`.
@@ -149,12 +149,12 @@ with output `"./deck.pptx"`.
 
 | ID | APIs exercised | Core modules/functions touched | Primary tests | Fixture linkage |
 |---|---|---|---|---|
-| W1 | `validate` | `src/lib.rs`: `validate`, `validate_ir`, schema + slot checks | `tests/test_api.py::test_validate_*` | N/A |
-| W2 | `render_html_preview` | `src/lib.rs`: preview render pipeline, template registry, theme tokens | `tests/test_api.py::test_render_html_preview_*` | `fixtures/parity/*.preview.html` |
-| W3 | `render_pngs` | `src/lib.rs`: rasterization + sink URI handling; `src/transport.rs` sink open/write | `tests/test_api.py::test_render_pngs_writes_one_file_per_slide` | `fixtures/parity/*.render.png.base64` |
-| W4 | `render_pptx` | `src/lib.rs`: ILM mapping + OpenXML zip emit + sink write | `tests/test_api.py::test_render_pptx_writes_openxml_package` | `fixtures/parity/*.render.pptx.base64` |
-| W5 | `copy_source_to_sink` | `src/lib.rs`: API wrapper; `src/transport.rs`: routing + adapters + copy | `tests/test_api.py::test_copy_source_to_sink_*` | N/A |
-| W6 | `list_paths`, `list_operations`, `explain_operation`, `get_examples` | `src/lib.rs`: manifest-backed introspection helpers | `tests/test_api.py::test_list_*`, `test_explain_operation_*`, `test_get_examples_*` | Template manifest generated from `templates/layouts/*.slide.jinja` |
+| W1 | `validate` | `src/py_api.rs::validate` → `src/schema.rs::validate_ir` (+ semantic slot checks) | `tests/test_api.py::test_validate_*` | N/A |
+| W2 | `render_html_preview` | `src/py_api.rs::render_html_preview` → `src/html_preview.rs` + `src/theme.rs` + `src/templating.rs` | `tests/test_api.py::test_render_html_preview_*` | `fixtures/parity/*.preview.html` |
+| W3 | `render_pngs` | `src/py_api.rs::render_pngs` → `src/output/png.rs` + `src/ilm/html.rs`; `src/transport.rs` sink open/write | `tests/test_api.py::test_render_pngs_writes_one_file_per_slide` | `fixtures/parity/*.render.png.base64` |
+| W4 | `render_pptx` | `src/py_api.rs::render_pptx` → `src/output/pptx.rs` + `src/ilm/layout_map.rs`; sink write via `src/transport.rs` | `tests/test_api.py::test_render_pptx_writes_openxml_package` | `fixtures/parity/*.render.pptx.base64` |
+| W5 | `copy_source_to_sink` | `src/py_api.rs::copy_source_to_sink`; routing + adapters in `src/transport.rs` | `tests/test_api.py::test_copy_source_to_sink_*` | N/A |
+| W6 | `list_paths`, `list_operations`, `explain_operation`, `get_examples` | `src/py_api.rs` + `src/operations.rs` + `src/templating.rs` (manifest-backed introspection) | `tests/test_api.py::test_list_*`, `test_explain_operation_*`, `test_get_examples_*` | Template manifest generated from `templates/layouts/*.slide.jinja` |
 
 ## Coverage gaps and follow-ups
 
