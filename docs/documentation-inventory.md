@@ -12,7 +12,7 @@ This checklist tracks what exists today versus what is still needed to satisfy `
 - Internal helper functions are partially documented.
 - A strict missing-docs gate (`#![deny(missing_docs)]`) is **not** enabled.
 
-### Public API checklist (`src/lib.rs` / `src/transport.rs`)
+### Public API checklist (`src/py_api.rs` / `src/transport.rs`)
 
 | Item | Doc status | Notes |
 |---|---|---|

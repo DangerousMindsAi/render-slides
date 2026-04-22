@@ -4,6 +4,25 @@ This document covers every symbol exported by `python/render_slides/__init__.py:
 
 > All APIs return JSON as strings (or side-effect writes for artifact/copy operations) and raise `ValueError` for invalid input or failed operations.
 
+## Where functions live in Rust
+
+Use this map when jumping from API behavior to implementation:
+
+| Python API | Primary Rust entrypoint | Core implementation modules |
+|---|---|---|
+| `validate` | `src/py_api.rs::validate` | `src/schema.rs` |
+| `describe_schema` | `src/py_api.rs::describe_schema` | `src/schema.rs` |
+| `list_paths` | `src/py_api.rs::list_paths` | `src/templating.rs` |
+| `list_operations` | `src/py_api.rs::list_operations` | `src/operations.rs` |
+| `explain_operation` | `src/py_api.rs::explain_operation` | `src/operations.rs` |
+| `get_examples` | `src/py_api.rs::get_examples` | `src/operations.rs` |
+| `render_html_preview` | `src/py_api.rs::render_html_preview` | `src/html_preview.rs`, `src/theme.rs`, `src/templating.rs` |
+| `render_pngs` | `src/py_api.rs::render_pngs` | `src/output/png.rs`, `src/ilm/*` |
+| `render_pptx` | `src/py_api.rs::render_pptx` | `src/output/pptx.rs`, `src/ilm/*` |
+| `copy_source_to_sink` | `src/py_api.rs::copy_source_to_sink` | `src/transport.rs` |
+| `register_source_handler` | `src/py_api.rs::register_source_handler` | `src/transport.rs` |
+| `register_sink_handler` | `src/py_api.rs::register_sink_handler` | `src/transport.rs` |
+
 ## Quick recipes
 
 ### Validate then render HTML preview

@@ -6,7 +6,7 @@ This document explains how the `render-slides` system is organized internally ac
 
 ```mermaid
 flowchart LR
-  A[Python caller\nrender_slides.*] --> B[pyo3 bindings\nsrc/lib.rs]
+  A[Python caller\nrender_slides.*] --> B[pyo3 bindings\nsrc/lib.rs + src/py_api.rs]
   B --> C[IR parse + schema validation]
   C --> D[Template manifest\nbuild.rs + templates/layouts]
   D --> E[HTML preview renderer]
@@ -24,7 +24,13 @@ flowchart LR
 | Area | Primary files | Responsibility |
 |---|---|---|
 | Python public API surface | `python/render_slides/__init__.py` | Re-export extension symbols and define stable `__all__`. |
-| Rust extension entrypoints | `src/lib.rs` | `#[pyfunction]` methods: validate/introspect/render/copy + Python error mapping. |
+| Rust extension module wiring | `src/lib.rs` | Registers `_core` module and binds exported Python functions. |
+| Rust Python API entrypoints | `src/py_api.rs` | `#[pyfunction]` methods: validate/introspect/render/copy + Python error mapping. |
+| Schema + semantic validation | `src/schema.rs` | IR parsing, schema validation, layout required-slot checks, schema summary. |
+| Introspection operations | `src/operations.rs`, `src/templating.rs` | Editable path list, supported operation specs, explanations and examples from manifest data. |
+| Preview renderer | `src/html_preview.rs`, `src/theme.rs` | Template slot replacement, escaping, theme token resolution, deterministic preview HTML output. |
+| ILM mapping + geometry | `src/ilm/layout_map.rs`, `src/ilm/model.rs`, `src/ilm/html.rs` | Shared intermediate slide model and geometry used by PNG/PPTX emitters. |
+| Artifact emitters | `src/output/png.rs`, `src/output/pptx.rs` | PNG rasterization and PPTX OpenXML package emission. |
 | Transport routing + adapters | `src/transport.rs` | Scheme detection, handler registry, local/http/s3 read-write streams, byte copy. |
 | Template ingestion/build-time metadata | `build.rs`, `templates/layouts/*.slide.jinja` | Parse front matter, generate manifest with editable paths + operation specs + template bodies. |
 | Schema contract | `schemas/v1/ir.schema.json` | Structural validation for IR payloads and refinement configuration. |
@@ -41,7 +47,7 @@ flowchart LR
 
 ### Template + layout resolution
 1. `build.rs` scans `templates/layouts/*.slide.jinja`.
-2. It emits a generated manifest consumed in `src/lib.rs` (`generated::...`).
+2. It emits a generated manifest consumed via `crate::generated` (declared in `src/lib.rs`, used by `src/templating.rs` and `src/operations.rs`).
 3. Render paths and operation specs derive from manifest metadata.
 4. Runtime lookup maps slide `layout` to the corresponding template body.
 
@@ -80,12 +86,12 @@ flowchart LR
 
 | Desired change | Primary location(s) |
 |---|---|
-| Add or tighten IR validation rule | `schemas/v1/ir.schema.json`, `src/lib.rs` semantic checks |
+| Add or tighten IR validation rule | `schemas/v1/ir.schema.json`, `src/schema.rs` semantic checks |
 | Add new slide layout | `templates/layouts/*.slide.jinja`, `build.rs`, fixtures in `fixtures/parity` |
 | Add/adjust editable path operation metadata | Layout front matter in templates + manifest generation in `build.rs` |
-| Modify HTML output structure/theme tokens | `src/lib.rs` preview rendering helpers |
-| Modify PNG dimensions/raster settings | `src/lib.rs` raster config (`hyper_render::Config`) |
-| Modify PPTX structure/content mapping | `src/lib.rs` ILM and OpenXML emit helpers |
+| Modify HTML output structure/theme tokens | `src/html_preview.rs`, `src/theme.rs` |
+| Modify PNG dimensions/raster settings | `src/output/png.rs` raster config (`hyper_render::Config`) |
+| Modify PPTX structure/content mapping | `src/ilm/*`, `src/output/pptx.rs` |
 | Add transport scheme or alter behavior | `src/transport.rs` adapter and registration logic |
 | Update parity expectations | `scripts/parity_harness.py` and `fixtures/parity/*` |
 
