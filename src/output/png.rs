@@ -1,13 +1,16 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use hyper_render::{render_to_png, Config};
+use cairo::{Context, Format, ImageSurface};
+use pango::{FontDescription, Layout};
+use pangocairo::functions::{create_layout, show_layout};
 use pyo3::exceptions::PyValueError;
 use pyo3::PyResult;
 use serde_json::Value;
 use url::Url;
 
-use crate::ilm::{build_single_slide_html_from_ilm, resolve_ilm_slides};
+use crate::ilm::model::{IlmElement, IlmSlide, ImageScaling, TextAlignment};
+use crate::ilm::resolve_ilm_slides;
 use crate::schema::parse_ir;
 use crate::transport;
 
@@ -47,9 +50,160 @@ fn slide_sink_uri(base_output_target: &str, filename: &str) -> Result<String, St
     }
 }
 
-fn rasterize_html_to_png_bytes(html: &str) -> Result<Vec<u8>, String> {
-    let config = Config::new().width(1366).height(768);
-    render_to_png(html, config).map_err(|e| format!("PNG render error: {e}"))
+fn rasterize_ilm_to_png_bytes(
+    slide: &IlmSlide,
+    _theme: Option<&serde_json::Map<String, Value>>,
+) -> Result<Vec<u8>, String> {
+    let width = 1366;
+    let height = 768;
+    let surface = ImageSurface::create(Format::ARgb32, width, height)
+        .map_err(|e| format!("Failed to create surface: {e}"))?;
+    
+    {
+        let cr = Context::new(&surface).map_err(|e| format!("Failed to create context: {e}"))?;
+
+        // Fill background
+        cr.set_source_rgb(1.0, 1.0, 1.0);
+        cr.paint().map_err(|e| format!("Paint error: {e}"))?;
+
+        let to_px = |emu: i64| (emu as f64) / 9525.0;
+
+        for elem in &slide.elements {
+            match elem {
+                IlmElement::Image(img_elem) => {
+                    if let Ok(dyn_img) = image::load_from_memory(&img_elem.image_data) {
+                        let rgba = dyn_img.into_rgba8();
+                        let img_w = rgba.width();
+                        let img_h = rgba.height();
+
+                        let mut cairo_data = vec![0u8; (img_w * img_h * 4) as usize];
+                        for (i, pixel) in rgba.pixels().enumerate() {
+                            let r = pixel[0] as f64 / 255.0;
+                            let g = pixel[1] as f64 / 255.0;
+                            let b = pixel[2] as f64 / 255.0;
+                            let a = pixel[3] as f64 / 255.0;
+
+                            cairo_data[i * 4 + 0] = (b * a * 255.0) as u8;
+                            cairo_data[i * 4 + 1] = (g * a * 255.0) as u8;
+                            cairo_data[i * 4 + 2] = (r * a * 255.0) as u8;
+                            cairo_data[i * 4 + 3] = (a * 255.0) as u8;
+                        }
+
+                        if let Ok(img_surf) = ImageSurface::create_for_data(
+                            cairo_data,
+                            Format::ARgb32,
+                            img_w as i32,
+                            img_h as i32,
+                            (img_w * 4) as i32,
+                        ) {
+                            let target_w = to_px(img_elem.cx);
+                            let target_h = to_px(img_elem.cy);
+                            let target_x = to_px(img_elem.x);
+                            let target_y = to_px(img_elem.y);
+
+                            cr.save().map_err(|e| format!("Context save error: {e}"))?;
+
+                            cr.rectangle(target_x, target_y, target_w, target_h);
+                            cr.clip();
+
+                            let img_w_f = img_w as f64;
+                            let img_h_f = img_h as f64;
+
+                            match img_elem.scaling {
+                                ImageScaling::Stretch => {
+                                    cr.translate(target_x, target_y);
+                                    cr.scale(target_w / img_w_f, target_h / img_h_f);
+                                }
+                                ImageScaling::Contain => {
+                                    let scale = (target_w / img_w_f).min(target_h / img_h_f);
+                                    let out_w = img_w_f * scale;
+                                    let out_h = img_h_f * scale;
+                                    cr.translate(
+                                        target_x + (target_w - out_w) / 2.0,
+                                        target_y + (target_h - out_h) / 2.0,
+                                    );
+                                    cr.scale(scale, scale);
+                                }
+                                ImageScaling::Cover => {
+                                    let scale = (target_w / img_w_f).max(target_h / img_h_f);
+                                    let out_w = img_w_f * scale;
+                                    let out_h = img_h_f * scale;
+                                    cr.translate(
+                                        target_x + (target_w - out_w) / 2.0,
+                                        target_y + (target_h - out_h) / 2.0,
+                                    );
+                                    cr.scale(scale, scale);
+                                }
+                                ImageScaling::FitWidth => {
+                                    let scale = target_w / img_w_f;
+                                    cr.translate(target_x, target_y);
+                                    cr.scale(scale, scale);
+                                }
+                                ImageScaling::FitHeight => {
+                                    let scale = target_h / img_h_f;
+                                    cr.translate(target_x, target_y);
+                                    cr.scale(scale, scale);
+                                }
+                            }
+
+                            cr.set_source_surface(&img_surf, 0.0, 0.0)
+                                .map_err(|e| format!("Set source surface error: {e}"))?;
+                            cr.paint().map_err(|e| format!("Paint error: {e}"))?;
+
+                            cr.restore().map_err(|e| format!("Context restore error: {e}"))?;
+                        }
+                    }
+                }
+                IlmElement::Text(run) => {
+                    cr.save().map_err(|e| format!("Context save error: {e}"))?;
+                    cr.set_source_rgb(0.0, 0.0, 0.0);
+
+                    let target_w = to_px(run.cx);
+                    let target_x = to_px(run.x);
+                    let target_y = to_px(run.y);
+
+                    cr.move_to(target_x, target_y);
+
+                    let layout = create_layout(&cr);
+                    let mut font = FontDescription::new();
+                    // Use Arial explicitly to ensure font metrics parity with cosmic_text auto-fit and PPTX
+                    font.set_family("Arial");
+                    font.set_absolute_size(run.font_size_pt as f64 * 96.0 / 72.0 * pango::SCALE as f64);
+                    if run.bold {
+                        font.set_weight(pango::Weight::Bold);
+                    }
+                    layout.set_font_description(Some(&font));
+                    layout.set_text(&run.text);
+                    layout.set_width((target_w * pango::SCALE as f64) as i32);
+                    layout.set_wrap(pango::WrapMode::WordChar);
+                    match run.alignment {
+                        TextAlignment::Left => {
+                            layout.set_alignment(pango::Alignment::Left);
+                        }
+                        TextAlignment::Center => {
+                            layout.set_alignment(pango::Alignment::Center);
+                        }
+                        TextAlignment::Right => {
+                            layout.set_alignment(pango::Alignment::Right);
+                        }
+                        TextAlignment::Justify => {
+                            layout.set_justify(true);
+                            layout.set_alignment(pango::Alignment::Left);
+                        }
+                    }
+
+                    show_layout(&cr, &layout);
+                    cr.restore().map_err(|e| format!("Context restore error: {e}"))?;
+                }
+            }
+        }
+    }
+
+    let mut output = Vec::new();
+    surface
+        .write_to_png(&mut output)
+        .map_err(|e| format!("PNG encode error: {e}"))?;
+    Ok(output)
 }
 
 pub(crate) fn render_pngs(ir_json: &str, output_target: &str) -> PyResult<()> {
@@ -59,8 +213,7 @@ pub(crate) fn render_pngs(ir_json: &str, output_target: &str) -> PyResult<()> {
 
     let router = transport::TransportRouter::new();
     for (index, slide) in ilm_slides.iter().enumerate() {
-        let slide_html = build_single_slide_html_from_ilm(slide, theme);
-        let png_bytes = rasterize_html_to_png_bytes(&slide_html).map_err(PyValueError::new_err)?;
+        let png_bytes = rasterize_ilm_to_png_bytes(slide, theme).map_err(PyValueError::new_err)?;
         let filename = format!("slide-{:03}.png", index + 1);
         let sink_uri = slide_sink_uri(output_target, &filename).map_err(PyValueError::new_err)?;
         let mut writer = router

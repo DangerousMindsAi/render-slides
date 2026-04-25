@@ -4,7 +4,9 @@
       "layout": "image_focus",
       "slots": {
         "title": "Product Preview",
-        "image": "fixtures/parity/assets/preview-placeholder.svg",
+        "image": {
+          "image_data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+        },
         "caption": "Updated analytics dashboard"
       }
     }

@@ -1,0 +1,27 @@
+layout: image_test
+editable_paths: []
+elements:
+  stretch_img:
+    x: 5%
+    y: 5%
+    width: 40%
+    height: 40%
+    image_scaling: "stretch"
+  contain_img:
+    x: 55%
+    y: 5%
+    width: 40%
+    height: 40%
+    image_scaling: "contain"
+  cover_img:
+    x: 5%
+    y: 55%
+    width: 40%
+    height: 40%
+    image_scaling: "cover"
+  fit_width_img:
+    x: 55%
+    y: 55%
+    width: 40%
+    height: 40%
+    image_scaling: "fit_width"

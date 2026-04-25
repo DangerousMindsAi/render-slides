@@ -9,23 +9,22 @@ This repository currently contains:
 - a documentation coverage plan in `docs/documentation-plan.md`
 - Python + Rust (`maturin`/`pyo3`) project scaffolding
 - initial IR validation, schema summary, and introspection APIs (`validate`, `describe_schema`, `list_paths`, `list_operations`, `explain_operation`, `get_examples`)
-- compile-time template manifest generation from `.slide.jinja` files with YAML front matter
+- compile-time template manifest generation from layout definition `.yaml` files
 - migrated layout templates for `title`, `title_body`, `two_column`, `section`, `image_focus`, `quote`, and `comparison` with metadata-derived refinement paths
 - JSON Schema definition for the v1 IR (including `refinement_config` paths/operations/aliases) at `schemas/v1/ir.schema.json`
 - transport layer scaffolding for local files, HTTP(S), and AWS S3 URIs
 - a Python copy helper API (`copy_source_to_sink`) backed by the Rust transport router
-- a deterministic HTML preview API (`render_html_preview`) that consumes layout template bodies and materializes slide slot values
-- preview HTML theme-token emission with deterministic CSS custom properties (default tokens + optional IR theme overrides)
+- deterministic text formatting with auto-fit geometry calculation via `cosmic-text`
 - layout-aware validation errors with required/optional/provided slot summaries and deterministic `suggested_fix` guidance
 - deterministic renderer entrypoint scaffolding for artifact output:
-  - `render_pngs` now rasterizes HTML slide snapshots into real 1366x768 PNG files (one per slide) using `hyper_render` (Chromium-free)
+  - `render_pngs` now utilizes Cairo/Pango to deterministically rasterize slide definitions into pixel-perfect 1366x768 PNG files without headless browsers
   - `render_pptx` now emits a real standards-compliant OpenXML `.pptx` package with deterministic slide/text mapping and `image_focus` media embedding
 - expanded parity fixtures + harness checks across all v1 layouts at `fixtures/parity/` and `scripts/parity_harness.py`
 - Rust and Python test coverage for validation, transport behaviors, and manifest/introspection path stability checks
 - a one-command build/test script at `scripts/test-python-build.sh`
 - a one-command Rustdoc generation script at `scripts/generate-docs.sh`
 - CI parity harness workflow with mismatch artifact uploads at `.github/workflows/parity-harness.yml`
-- renderer-backed parity fixtures and thresholds for HTML preview + PNG + PPTX outputs via `scripts/parity_harness.py`
+- renderer-backed parity fixtures and thresholds for PNG + PPTX outputs via `scripts/parity_harness.py`
 
 ## Prerequisites
 
@@ -33,6 +32,10 @@ Before building locally, install:
 - Python 3.9+ (including 3.13)
 - Rust toolchain (`rustup`, including `cargo`)
 - `pip`
+- Cairo and Pango development headers (`libcairo2-dev`, `libpango1.0-dev`, `libglib2.0-dev` on Debian/Ubuntu)
+
+### Fonts for PNG Rendering
+To ensure that the PNG renderer closely approximates PowerPoint's text layout (especially in Docker environments), you should install Microsoft Core Fonts or a metrically equivalent package (`ttf-mscorefonts-installer` or `fonts-croscore` / `fonts-carlito` / `fonts-caladea`). This ensures that Pango shapes the text using metrics identical to PowerPoint on Windows.
 
 ## Step-by-step: build and test
 
@@ -129,7 +132,7 @@ Validate golden fixtures (HTML + renderer artifacts) locally:
 
 ```bash
 python scripts/parity_harness.py \
-  --checks html,png,pptx \
+  --checks png,pptx \
   --png-rmse-threshold 0.0 \
   --png-diff-ratio-threshold 0.0 \
   --artifacts-dir artifacts/parity
@@ -138,14 +141,14 @@ python scripts/parity_harness.py \
 Refresh fixtures after intentional rendering changes:
 
 ```bash
-python scripts/parity_harness.py --checks html,png,pptx --update
+python scripts/parity_harness.py --checks png,pptx --update
 ```
 
 Optional PPTX visual parity mode (requires LibreOffice `soffice` in `PATH`):
 
 ```bash
 python scripts/parity_harness.py \
-  --checks html,png,pptx,pptx_png \
+  --checks png,pptx,pptx_png \
   --png-rmse-threshold 2.5 \
   --png-diff-ratio-threshold 0.02
 ```
@@ -160,7 +163,7 @@ python scripts/parity_harness.py \
 
 ## Remaining gaps
 
-- Final parity calibration is still in progress (token tuning + visual diff thresholds for tighter HTML/PPTX match).
+- Final parity calibration is still in progress (token tuning + visual diff thresholds for tighter PNG/PPTX match).
 - Transport plugins currently support runtime scheme registration via handler aliases (`register_source_handler`, `register_sink_handler`) mapped to built-in adapters (`file`, `http`, `s3`); custom callback-based adapters are not yet available.
 
 ## Implementation plan status
@@ -170,13 +173,13 @@ python scripts/parity_harness.py \
 - ✅ Operation-spec snapshot testing now locks path + operation + params + bounds contracts for introspection.
 - ✅ Layout-aware semantic validation now enforces required slot combinations per layout before render-time.
 - ✅ Validation errors now include layout-specific required/optional/provided slot details with deterministic `suggested_fix` hints.
-- ✅ Template bodies are now consumed by a deterministic HTML preview pipeline (`render_html_preview`) with HTML escaping and slot substitution.
-- ✅ HTML preview now emits shared theme tokens (with deterministic defaults and optional IR theme overrides).
-- ✅ Golden parity fixtures now cover all v1 layouts with deterministic preview snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
-- ✅ Parity harness now validates HTML + renderer-backed PNG/PPTX outputs with configurable PNG diff thresholds and CI artifact uploads.
+- ✅ Template bodies are now consumed by a deterministic Cairo/Pango PNG pipeline, achieving parity with LibreOffice PPTX outputs.
+- ✅ HTML previews and Jinja templating have been successfully abandoned in favor of declarative YAML and native Rust rendering.
+- ✅ Golden parity fixtures now cover all v1 layouts with deterministic PNG snapshots (`fixtures/parity`, `scripts/parity_harness.py`).
+- ✅ Parity harness now validates PNG/PPTX outputs with configurable PNG diff thresholds and CI artifact uploads.
 - ✅ Parity harness now includes an optional `pptx_png` mode to convert emitted PPTX decks to PNGs (via LibreOffice) and run image-level diffs against renderer PNG fixtures.
-- ✅ `render_pngs` now emits real HTML-to-image slide PNG snapshots (1366x768) via `hyper_render` instead of placeholder 1x1 bytes.
+- ✅ `render_pngs` now utilizes Cairo/Pango to directly rasterize 1366x768 PNGs, removing the heavy dependency on HTML/Chromium-free rendering.
 - ✅ Renderer entrypoint APIs now emit deterministic output artifacts (`render_pngs`, `render_pptx`) rather than raising `NotImplementedError`.
 - ✅ ILM-first dual-emitter wiring now drives both PNG and PPTX rendering from one shared absolute-geometry slide model.
 - ✅ Runtime transport registration hooks (`register_source_handler`, `register_sink_handler`) are now exposed in the Python API.
-- ⏭️ Next: calibrate geometry tokens for tighter HTML/PPTX visual parity and add optional PPTX-to-image parity export checks in CI.
+- ⏭️ Next: Release preparation and integration with the standalone Sub-Agent service.

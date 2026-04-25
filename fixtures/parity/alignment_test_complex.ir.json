@@ -1,0 +1,44 @@
+{
+  "slides": [
+    {
+      "layout": "title_body",
+      "style": {
+        "alignment": "left"
+      },
+      "slots": {
+        "title": "Alignment: left",
+        "body": "This paragraph is testing the left alignment feature. We are repeating this text over and over to ensure that there are multiple lines of text that will be wrapped by the Pango shaping engine and the OpenXML PowerPoint rendering engine. The visual effect should be symmetric between the two formats."
+      }
+    },
+    {
+      "layout": "title_body",
+      "style": {
+        "alignment": "center"
+      },
+      "slots": {
+        "title": "Alignment: center",
+        "body": "This paragraph is testing the center alignment feature. We are repeating this text over and over to ensure that there are multiple lines of text that will be wrapped by the Pango shaping engine and the OpenXML PowerPoint rendering engine. The visual effect should be symmetric between the two formats."
+      }
+    },
+    {
+      "layout": "title_body",
+      "style": {
+        "alignment": "right"
+      },
+      "slots": {
+        "title": "Alignment: right",
+        "body": "This paragraph is testing the right alignment feature. We are repeating this text over and over to ensure that there are multiple lines of text that will be wrapped by the Pango shaping engine and the OpenXML PowerPoint rendering engine. The visual effect should be symmetric between the two formats."
+      }
+    },
+    {
+      "layout": "title_body",
+      "style": {
+        "alignment": "justify"
+      },
+      "slots": {
+        "title": "Alignment: justify",
+        "body": "This paragraph is testing the justify alignment feature. We are repeating this text over and over to ensure that there are multiple lines of text that will be wrapped by the Pango shaping engine and the OpenXML PowerPoint rendering engine. The visual effect should be symmetric between the two formats."
+      }
+    }
+  ]
+}

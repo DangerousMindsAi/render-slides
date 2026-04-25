@@ -1,0 +1,29 @@
+layout: section
+editable_paths:
+- path: slides[*].slots.title
+  operation: set_text
+  description: Replaces text content for the selected slot.
+  params:
+  - text
+  bounds: text length must be <= 2000 characters
+- path: slides[*].slots.subtitle
+  operation: set_text
+  description: Replaces text content for the selected slot.
+  params:
+  - text
+  bounds: text length must be <= 2000 characters
+elements:
+  title:
+    x: 7.0%
+    y: 31.3%
+    width: 86.0%
+    height: 22.1%
+    font_size: 46
+    bold: true
+  subtitle:
+    x: 7.0%
+    y: 56.0%
+    width: 86.0%
+    height: 15.6%
+    font_size: 24
+    bold: false

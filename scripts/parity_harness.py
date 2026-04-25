@@ -46,7 +46,7 @@ class HarnessConfig:
 
 def parse_checks(raw_checks: str) -> set[str]:
     checks = {item.strip().lower() for item in raw_checks.split(",") if item.strip()}
-    valid = {"html", "png", "pptx", "pptx_png"}
+    valid = {"png", "pptx", "pptx_png"}
     unknown = checks - valid
     if unknown:
         raise SystemExit(f"Unknown parity check(s): {', '.join(sorted(unknown))}")
@@ -55,31 +55,7 @@ def parse_checks(raw_checks: str) -> set[str]:
     return checks
 
 
-def render_fixture_html(ir_path: Path) -> str:
-    ir = json.loads(ir_path.read_text(encoding="utf-8"))
-    return render_slides.render_html_preview(json.dumps(ir))
 
-
-def should_skip_png_check(ir: dict) -> str | None:
-    slides = ir.get("slides")
-    if not isinstance(slides, list):
-        return "IR is missing a slides array"
-    for slide in slides:
-        if not isinstance(slide, dict):
-            continue
-        slots = slide.get("slots")
-        if not isinstance(slots, dict):
-            continue
-        image_ref = slots.get("image")
-        if not isinstance(image_ref, str):
-            continue
-        if image_ref.startswith("http://") or image_ref.startswith("https://"):
-            continue
-        return (
-            "image slot uses a non-http(s) source, which is not supported by "
-            "the PNG renderer parity path yet"
-        )
-    return None
 
 
 def write_artifact(path: Path, payload: str | bytes) -> None:
@@ -234,36 +210,7 @@ def diff_png(expected_bytes: bytes, actual_bytes: bytes) -> PngDiffMetrics:
     )
 
 
-def compare_html(stem: str, ir_path: Path, fixtures_dir: Path, config: HarnessConfig) -> list[str]:
-    mismatches: list[str] = []
-    expected_path = fixtures_dir / f"{stem}.preview.html"
-    actual_html = render_fixture_html(ir_path)
 
-    if config.update:
-        expected_path.write_text(actual_html, encoding="utf-8")
-        print(f"updated {expected_path}")
-        return mismatches
-
-    if not expected_path.exists():
-        return [f"missing expected HTML fixture: {expected_path}"]
-
-    expected_html = expected_path.read_text(encoding="utf-8")
-    if expected_html != actual_html:
-        mismatches.append(f"html mismatch: {expected_path}")
-        if config.artifacts_dir:
-            write_artifact(config.artifacts_dir / f"html/{stem}.expected.html", expected_html)
-            write_artifact(config.artifacts_dir / f"html/{stem}.actual.html", actual_html)
-            unified_diff = "\n".join(
-                difflib.unified_diff(
-                    expected_html.splitlines(),
-                    actual_html.splitlines(),
-                    fromfile=f"{stem}.expected.html",
-                    tofile=f"{stem}.actual.html",
-                    lineterm="",
-                )
-            )
-            write_artifact(config.artifacts_dir / f"html/{stem}.diff.txt", f"{unified_diff}\n")
-    return mismatches
 
 
 def compare_png(stem: str, ir_json: str, fixtures_dir: Path, config: HarnessConfig) -> list[str]:
@@ -451,14 +398,9 @@ def run_checks(ir_files: Iterable[Path], fixtures_dir: Path, config: HarnessConf
         ir_json = ir_path.read_text(encoding="utf-8")
         ir = json.loads(ir_json)
 
-        if "html" in config.checks:
-            mismatches.extend(compare_html(stem, ir_path, fixtures_dir, config))
-        png_skip_reason = should_skip_png_check(ir)
+
         if "png" in config.checks:
-            if png_skip_reason:
-                print(f"skipped png check for {stem}: {png_skip_reason}")
-            else:
-                mismatches.extend(compare_png(stem, ir_json, fixtures_dir, config))
+            mismatches.extend(compare_png(stem, ir_json, fixtures_dir, config))
         if "pptx" in config.checks:
             mismatches.extend(compare_pptx(stem, ir_json, fixtures_dir, config))
         if "pptx_png" in config.checks:
@@ -476,8 +418,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--checks",
-        default="html,png,pptx",
-        help="Comma-separated checks to run: html,png,pptx,pptx_png",
+        default="png,pptx",
+        help="Comma-separated checks to run: png,pptx,pptx_png",
     )
     parser.add_argument(
         "--update",

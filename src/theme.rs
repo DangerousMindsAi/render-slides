@@ -2,7 +2,13 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use crate::html_preview::html_escape;
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
 
 fn default_theme_tokens() -> BTreeMap<&'static str, &'static str> {
     BTreeMap::from([

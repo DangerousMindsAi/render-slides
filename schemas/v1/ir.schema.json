@@ -46,7 +46,8 @@
             "section",
             "image_focus",
             "quote",
-            "comparison"
+            "comparison",
+            "image_test"
           ]
         },
         "slots": {
@@ -61,13 +62,31 @@
               "image",
               "caption",
               "quote",
-              "attribution"
+              "attribution",
+              "stretch_img",
+              "contain_img",
+              "cover_img",
+              "fit_width_img"
             ]
           },
           "additionalProperties": {
-            "type": ["string", "array"],
-            "items": { "type": "string" }
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["image_data"],
+                "properties": {
+                  "image_data": { "type": "string" }
+                }
+              }
+            ]
           }
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
         },
         "style": {
           "type": "object",
@@ -75,7 +94,7 @@
           "properties": {
             "alignment": {
               "type": "string",
-              "enum": ["left", "center", "right"]
+              "enum": ["left", "center", "right", "justify"]
             },
             "body": {
               "type": "object",

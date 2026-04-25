@@ -1,0 +1,42 @@
+layout: comparison
+editable_paths:
+- path: slides[*].slots.title
+  operation: set_text
+  description: Replaces text content for the selected slot.
+  params:
+  - text
+  bounds: text length must be <= 2000 characters
+- path: slides[*].slots.left
+  operation: set_text
+  description: Replaces text content for the selected slot.
+  params:
+  - text
+  bounds: text length must be <= 2000 characters
+- path: slides[*].slots.right
+  operation: set_text
+  description: Replaces text content for the selected slot.
+  params:
+  - text
+  bounds: text length must be <= 2000 characters
+elements:
+  title:
+    x: 7.0%
+    y: 6.3%
+    width: 86.0%
+    height: 14.3%
+    font_size: 36
+    bold: true
+  left:
+    x: 7.0%
+    y: 24.7%
+    width: 41.0%
+    height: 67.7%
+    font_size: 22
+    bold: false
+  right:
+    x: 52.0%
+    y: 24.7%
+    width: 41.0%
+    height: 67.7%
+    font_size: 22
+    bold: false

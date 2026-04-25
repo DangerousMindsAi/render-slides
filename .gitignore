@@ -3,3 +3,9 @@
 __pycache__/
 *.pyc
 .venv/
+
+*.so
+scratch/
+gallery/renders/*_tmp/
+gallery/renders/pptx*.png
+gallery/renders/*.pdf

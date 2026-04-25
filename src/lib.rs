@@ -8,13 +8,11 @@ pub(crate) mod generated {
     include!(concat!(env!("OUT_DIR"), "/template_manifest.rs"));
 }
 
-mod html_preview;
 mod ilm;
 mod operations;
 mod output;
 mod py_api;
 mod schema;
-mod templating;
 mod theme;
 mod types;
 
@@ -30,7 +28,6 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_api::copy_source_to_sink, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::register_source_handler, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::register_sink_handler, m)?)?;
-    m.add_function(wrap_pyfunction!(py_api::render_html_preview, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::render_pngs, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::render_pptx, m)?)?;
     Ok(())

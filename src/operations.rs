@@ -1,6 +1,17 @@
+use std::collections::BTreeSet;
+
 use crate::generated;
-use crate::templating::supports_path;
 use crate::types::{OperationExample, OperationExplanation, OperationSpec};
+
+pub(crate) fn all_editable_paths() -> Vec<&'static str> {
+    let mut unique = BTreeSet::new();
+    unique.extend(generated::TEMPLATE_EDITABLE_PATHS.iter().copied());
+    unique.into_iter().collect()
+}
+
+pub(crate) fn supports_path(path: &str) -> bool {
+    all_editable_paths().contains(&path)
+}
 
 pub(crate) fn operation_specs_for(path: &str) -> Option<Vec<OperationSpec>> {
     let from_template: Vec<_> = generated::TEMPLATE_OPERATION_SPECS

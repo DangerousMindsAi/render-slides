@@ -1,8 +1,7 @@
 use serde_json::json;
 
-use crate::operations::operation_specs_for;
+use crate::operations::{all_editable_paths, operation_specs_for};
 use crate::schema::{schema_summary, validate_ir};
-use crate::templating::all_editable_paths;
 
 #[test]
 fn validate_ir_accepts_minimal_valid_input() {

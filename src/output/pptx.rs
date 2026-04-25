@@ -7,26 +7,28 @@ use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
 use crate::ilm::resolve_ilm_slides;
+use crate::ilm::model::{IlmElement, ImageScaling, TextAlignment};
 use crate::schema::parse_ir;
-use crate::transport;
 
 fn xml_escape(input: &str) -> String {
-    crate::html_preview::html_escape(input)
+    input.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
-fn detect_image_extension(image_uri: &str, bytes: &[u8]) -> &'static str {
-    let lower = image_uri.to_ascii_lowercase();
-    if lower.ends_with(".png") || bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
+fn detect_image_extension(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
         return "png";
     }
-    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") || bytes.starts_with(&[0xFF, 0xD8, 0xFF])
-    {
+    if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
         return "jpg";
     }
-    if lower.ends_with(".gif") || bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+    if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
         return "gif";
     }
-    "bin"
+    "png"
 }
 
 fn add_zip_file(
@@ -43,27 +45,13 @@ fn add_zip_file(
 pub(crate) fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
     let specs = resolve_ilm_slides(parsed)?;
 
-    let router = transport::TransportRouter::new();
     let mut media: Vec<(String, Vec<u8>, &'static str)> = Vec::new();
-    for (idx, spec) in specs.iter().enumerate() {
-        if let Some(image) = &spec.image {
-            let mut reader = router.open_read(&image.uri).map_err(|e| {
-                format!(
-                    "AssetError: failed to read image for slide {}: {}",
-                    idx + 1,
-                    e
-                )
-            })?;
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).map_err(|e| {
-                format!(
-                    "AssetError: failed to read image bytes for slide {}: {}",
-                    idx + 1,
-                    e
-                )
-            })?;
-            let ext = detect_image_extension(&image.uri, &bytes);
-            media.push((format!("image{}.{}", media.len() + 1, ext), bytes, ext));
+    for spec in &specs {
+        for elem in &spec.elements {
+            if let IlmElement::Image(image) = elem {
+                let ext = detect_image_extension(&image.image_data);
+                media.push((format!("image{}.{}", media.len() + 1, ext), image.image_data.clone(), ext));
+            }
         }
     }
 
@@ -74,44 +62,105 @@ pub(crate) fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
         let slide_number = idx + 1;
         let mut shapes_xml = String::new();
         let mut shape_id = 2usize;
-        for tb in &spec.text_runs {
-            let run_attr = if tb.bold { " b=\"1\"" } else { "" };
-            let mut paragraphs = String::new();
-            for line in tb.text.lines() {
-                paragraphs.push_str(&format!(
-                    "<a:p><a:r><a:rPr lang=\"en-US\" sz=\"{}\"{} /><a:t>{}</a:t></a:r></a:p>",
-                    tb.font_size_pt * 100,
-                    run_attr,
-                    xml_escape(line)
-                ));
-            }
-            if paragraphs.is_empty() {
-                paragraphs.push_str("<a:p/>");
-            }
-            shapes_xml.push_str(&format!("<p:sp><p:nvSpPr><p:cNvPr id=\"{}\" name=\"TextBox {}\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"{}\" y=\"{}\"/><a:ext cx=\"{}\" cy=\"{}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\"/><a:lstStyle/>{}</p:txBody></p:sp>", shape_id, shape_id, tb.x, tb.y, tb.cx, tb.cy, paragraphs));
-            shape_id += 1;
-        }
-
+        
         let mut rels_xml = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">");
-        let mut pic_xml = String::new();
-        if let Some(img) = &spec.image {
-            let rid = "rId1";
-            rels_xml.push_str(&format!("<Relationship Id=\"{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"../media/{}\"/>", rid, media[media_idx].0));
-            pic_xml = format!("<p:pic><p:nvPicPr><p:cNvPr id=\"{}\" name=\"Image\"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed=\"{}\"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x=\"{}\" y=\"{}\"/><a:ext cx=\"{}\" cy=\"{}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></p:spPr></p:pic>", shape_id, rid, img.x, img.y, img.cx, img.cy);
-            media_idx += 1;
+        let mut has_rels = false;
+        
+        for elem in &spec.elements {
+            match elem {
+                IlmElement::Text(tb) => {
+                    let run_attr = if tb.bold { " b=\"1\"" } else { "" };
+                    let mut paragraphs = String::new();
+                    let algn_str = match tb.alignment {
+                        TextAlignment::Left => "l",
+                        TextAlignment::Center => "ctr",
+                        TextAlignment::Right => "r",
+                        TextAlignment::Justify => "just",
+                    };
+                    for line in tb.text.lines() {
+                        paragraphs.push_str(&format!(
+                            "<a:p><a:pPr algn=\"{}\"/><a:r><a:rPr lang=\"en-US\" sz=\"{}\"{}><a:latin typeface=\"Arial\"/></a:rPr><a:t>{}</a:t></a:r></a:p>",
+                            algn_str,
+                            tb.font_size_pt * 100,
+                            run_attr,
+                            xml_escape(line)
+                        ));
+                    }
+                    if paragraphs.is_empty() {
+                        paragraphs.push_str("<a:p/>");
+                    }
+                    shapes_xml.push_str(&format!("<p:sp><p:nvSpPr><p:cNvPr id=\"{}\" name=\"TextBox {}\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"{}\" y=\"{}\"/><a:ext cx=\"{}\" cy=\"{}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"0\" rIns=\"0\" tIns=\"0\" bIns=\"0\"/><a:lstStyle/>{}</p:txBody></p:sp>", shape_id, shape_id, tb.x, tb.y, tb.cx, tb.cy, paragraphs));
+                    shape_id += 1;
+                }
+                IlmElement::Image(img) => {
+                    let rid = format!("rId{}", shape_id);
+                    rels_xml.push_str(&format!("<Relationship Id=\"{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"../media/{}\"/>", rid, media[media_idx].0));
+                    has_rels = true;
+                    
+                    let size = imagesize::blob_size(&img.image_data).unwrap_or(imagesize::ImageSize { width: 100, height: 100 });
+                    let img_w = size.width as f64;
+                    let img_h = size.height as f64;
+
+                    let mut out_x = img.x;
+                    let mut out_y = img.y;
+                    let mut out_cx = img.cx;
+                    let mut out_cy = img.cy;
+
+                    let mut src_rect = "".to_string();
+
+                    match img.scaling {
+                        ImageScaling::Stretch => {}
+                        ImageScaling::Contain => {
+                            let scale = (out_cx as f64 / img_w).min(out_cy as f64 / img_h);
+                            let new_cx = (img_w * scale) as i64;
+                            let new_cy = (img_h * scale) as i64;
+                            out_x += (out_cx - new_cx) / 2;
+                            out_y += (out_cy - new_cy) / 2;
+                            out_cx = new_cx;
+                            out_cy = new_cy;
+                        }
+                        ImageScaling::Cover => {
+                            let scale = (out_cx as f64 / img_w).max(out_cy as f64 / img_h);
+                            let scaled_w = img_w * scale;
+                            let scaled_h = img_h * scale;
+                            
+                            let crop_x = ((scaled_w - out_cx as f64) / 2.0 / scaled_w * 100000.0) as i64;
+                            let crop_y = ((scaled_h - out_cy as f64) / 2.0 / scaled_h * 100000.0) as i64;
+                            
+                            src_rect = format!("<a:srcRect l=\"{}\" t=\"{}\" r=\"{}\" b=\"{}\"/>", crop_x, crop_y, crop_x, crop_y);
+                        }
+                        ImageScaling::FitWidth => {
+                            let scale = out_cx as f64 / img_w;
+                            let new_cy = (img_h * scale) as i64;
+                            out_y += (out_cy - new_cy) / 2;
+                            out_cy = new_cy;
+                        }
+                        ImageScaling::FitHeight => {
+                            let scale = out_cy as f64 / img_h;
+                            let new_cx = (img_w * scale) as i64;
+                            out_x += (out_cx - new_cx) / 2;
+                            out_cx = new_cx;
+                        }
+                    }
+                    
+                    shapes_xml.push_str(&format!("<p:pic><p:nvPicPr><p:cNvPr id=\"{}\" name=\"Image\"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed=\"{}\"/>{}<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x=\"{}\" y=\"{}\"/><a:ext cx=\"{}\" cy=\"{}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></p:spPr></p:pic>", shape_id, rid, src_rect, out_x, out_y, out_cx, out_cy));
+                    shape_id += 1;
+                    media_idx += 1;
+                }
+            }
         }
         rels_xml.push_str("</Relationships>");
 
         let slide_xml = format!(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/><a:chOff x=\"0\" y=\"0\"/><a:chExt cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>{}{}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>",
-            shapes_xml, pic_xml
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><p:sld xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/><a:chOff x=\"0\" y=\"0\"/><a:chExt cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>{}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>",
+            shapes_xml
         );
         add_zip_file(
             &mut zip,
             &format!("ppt/slides/slide{slide_number}.xml"),
             &slide_xml,
         )?;
-        if spec.image.is_some() {
+        if has_rels {
             add_zip_file(
                 &mut zip,
                 &format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
@@ -174,10 +223,15 @@ pub(crate) fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
 pub(crate) fn render_pptx(ir_json: &str, output_target: &str) -> PyResult<()> {
     let parsed = parse_ir(ir_json).map_err(PyValueError::new_err)?;
     let bytes = build_pptx_bytes(&parsed).map_err(PyValueError::new_err)?;
-    let router = transport::TransportRouter::new();
-    let mut writer = router
-        .open_write(output_target)
-        .map_err(|e| PyValueError::new_err(format!("Transport sink error: {e}")))?;
+    
+    // Support file:// locally as output or write to standard output path
+    let mut writer = if output_target.starts_with("file://") {
+        let p = output_target.strip_prefix("file://").unwrap();
+        Box::new(std::fs::File::create(p).map_err(|e| PyValueError::new_err(format!("Output file error: {e}")))? ) as Box<dyn Write>
+    } else {
+        Box::new(std::fs::File::create(output_target).map_err(|e| PyValueError::new_err(format!("Output file error: {e}")))? ) as Box<dyn Write>
+    };
+    
     writer
         .write_all(&bytes)
         .map_err(|e| PyValueError::new_err(format!("Write error: {e}")))?;

@@ -29,9 +29,3 @@ pub(crate) struct OperationExample {
     pub(crate) request: &'static str,
     pub(crate) effect: &'static str,
 }
-
-#[derive(Clone)]
-pub(crate) struct SlideTemplate {
-    pub(crate) body: &'static str,
-    pub(crate) slot_names: Vec<String>,
-}

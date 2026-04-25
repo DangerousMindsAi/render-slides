@@ -9,7 +9,6 @@ from ._core import (
     list_paths,
     register_sink_handler,
     register_source_handler,
-    render_html_preview,
     render_pngs,
     render_pptx,
     validate,
@@ -25,7 +24,6 @@ __all__ = [
     "copy_source_to_sink",
     "register_source_handler",
     "register_sink_handler",
-    "render_html_preview",
     "render_pngs",
     "render_pptx",
 ]

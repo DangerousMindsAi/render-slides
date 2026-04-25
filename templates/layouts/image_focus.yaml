@@ -1,0 +1,40 @@
+layout: image_focus
+editable_paths:
+- path: slides[*].slots.title
+  operation: set_text
+  description: Replaces text content for the selected slot.
+  params:
+  - text
+  bounds: text length must be <= 2000 characters
+- path: slides[*].slots.image
+  operation: set_text
+  description: Replaces text content for the selected slot.
+  params:
+  - text
+  bounds: text length must be <= 2000 characters
+- path: slides[*].slots.caption
+  operation: set_text
+  description: Replaces text content for the selected slot.
+  params:
+  - text
+  bounds: text length must be <= 2000 characters
+elements:
+  title:
+    x: 5.3%
+    y: 6.3%
+    width: 89.3%
+    height: 11.7%
+    font_size: 32
+    bold: true
+  caption:
+    x: 5.3%
+    y: 84.6%
+    width: 89.3%
+    height: 10.4%
+    font_size: 20
+    bold: false
+  image:
+    x: 12.4%
+    y: 19.5%
+    width: 75.1%
+    height: 61.2%

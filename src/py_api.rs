@@ -2,11 +2,9 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde_json::Value;
 
-use crate::html_preview::render_preview_html;
 use crate::operations;
 use crate::output;
 use crate::schema;
-use crate::templating::all_editable_paths;
 use crate::transport;
 
 #[pyfunction]
@@ -25,7 +23,7 @@ pub(crate) fn describe_schema() -> PyResult<String> {
 
 #[pyfunction(signature = (slide_id=None))]
 pub(crate) fn list_paths(slide_id: Option<usize>) -> PyResult<String> {
-    let mut paths: Vec<String> = all_editable_paths()
+    let mut paths: Vec<String> = operations::all_editable_paths()
         .into_iter()
         .map(ToString::to_string)
         .collect();
@@ -91,11 +89,6 @@ pub(crate) fn copy_source_to_sink(source_uri: &str, sink_uri: &str) -> PyResult<
         .flush()
         .map_err(|e| PyValueError::new_err(format!("Flush error: {e}")))?;
     Ok(())
-}
-
-#[pyfunction]
-pub(crate) fn render_html_preview(ir_json: &str) -> PyResult<String> {
-    render_preview_html(ir_json).map_err(PyValueError::new_err)
 }
 
 #[pyfunction]

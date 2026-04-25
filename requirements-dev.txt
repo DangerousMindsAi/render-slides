@@ -1,2 +1,4 @@
 maturin>=1.5,<2.0
 pytest>=8.0
+Pillow>=10.0.0
+-e .

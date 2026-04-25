@@ -1,0 +1,15 @@
+{
+  "slides": [
+    {
+      "layout": "two_column",
+      "params": {
+        "split": 0.3
+      },
+      "slots": {
+        "title": "Uneven Split Test (30% / 70%)",
+        "left": "This is a much narrower left column because the split is 0.3. This is a much narrower left column because the split is 0.3. This is a much narrower left column because the split is 0.3. This is a much narrower left column because the split is 0.3. This is a much narrower left column because the split is 0.3. ",
+        "right": "This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. This is the right column, which should be significantly wider. "
+      }
+    }
+  ]
+}
