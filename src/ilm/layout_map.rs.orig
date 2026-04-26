@@ -220,6 +220,7 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
         macro_rules! flush_text {
             () => {
                 if !current_text_blocks.is_empty() {
+                    println!("FLUSH TEXT: {} blocks", current_text_blocks.len());
                     let mut h = 0.0;
                     for p in current_text_blocks.iter() {
                         if let RichBlock::Paragraph(para) = p {
@@ -260,15 +261,22 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
                     let mut total_table_height = 0.0;
                     
                     for row in &table.rows {
+                        let cell_padding_x_emu = 91440.0; // 0.1 inches
+                        let cell_padding_y_emu = 45720.0; // 0.05 inches
+                        let cell_padding_x_px = cell_padding_x_emu / 9525.0;
+                        let cell_padding_y_px = cell_padding_y_emu / 9525.0;
+                        
+                        let effective_col_width = col_width_px - (cell_padding_x_px * 2.0);
                         let mut max_cell_height: f32 = 0.0;
                         let mut ilm_cells = Vec::new();
-                        
+
                         for (c_idx, cell) in row.cells.iter().enumerate() {
                             let mut cell_height: f32 = 0.0;
                             for p in &cell.paragraphs {
-                                cell_height += measure_paragraph(p, font_system, col_width_px, font_size_px, line_height_px, bold_default) + paragraph_spacing_px;
+                                cell_height += measure_paragraph(p, font_system, effective_col_width, font_size_px, line_height_px, bold_default) + paragraph_spacing_px;
                             }
                             if cell_height > 0.0 { cell_height -= paragraph_spacing_px; }
+                            cell_height += (cell_padding_y_px * 2.0);
                             max_cell_height = max_cell_height.max(cell_height);
                             
                             ilm_cells.push(IlmTableCell {
@@ -291,6 +299,9 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
                         });
                     }
                     
+                    let table_margin_px = font_size_px * 0.5;
+                    current_y_px += table_margin_px;
+
                     elements.push(IlmElement::Table(IlmTable {
                         x,
                         y: y + (current_y_px * 9525.0) as i64,
@@ -300,7 +311,7 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
                         col_widths_emu: vec![(col_width_px * 9525.0) as i64; num_cols],
                     }));
                     
-                    current_y_px += total_table_height + paragraph_spacing_px;
+                    current_y_px += total_table_height + table_margin_px;
                 }
             }
         }

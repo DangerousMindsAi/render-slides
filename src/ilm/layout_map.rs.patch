@@ -1,7 +1,10 @@
 --- src/ilm/layout_map.rs
 +++ src/ilm/layout_map.rs
-@@ -298,6 +298,7 @@
-                     }
-                     
-+                    println!("TABLE y: {}, current_y_px: {}", y + (current_y_px * 9525.0) as i64, current_y_px);
-                     elements.push(IlmElement::Table(IlmTable {
+@@ -221,6 +221,7 @@
+         macro_rules! flush_text {
+             () => {
+                 if !current_text_blocks.is_empty() {
++                    println!("FLUSH TEXT: {} blocks", current_text_blocks.len());
+                     let mut h = 0.0;
+                     for p in current_text_blocks.iter() {
+                         if let RichBlock::Paragraph(para) = p {
