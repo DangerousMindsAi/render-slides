@@ -11,7 +11,8 @@ Use this map when jumping from API behavior to implementation:
 | Python API | Primary Rust entrypoint | Core implementation modules |
 |---|---|---|
 | `validate` | `src/py_api.rs::validate` | `src/schema.rs` |
-| `describe_schema` | `src/py_api.rs::describe_schema` | `src/schema.rs` |
+| `describe_layouts` | `src/py_api.rs::describe_layouts` | `src/schema.rs` |
+| `describe_tweaks` | `src/py_api.rs::describe_tweaks` | `src/schema.rs` |
 | `list_paths` | `src/py_api.rs::list_paths` | `src/templating.rs` |
 | `list_operations` | `src/py_api.rs::list_operations` | `src/operations.rs` |
 | `explain_operation` | `src/py_api.rs::explain_operation` | `src/operations.rs` |
@@ -92,17 +93,30 @@ Validate an IR payload against schema + semantic layout slot rules.
   ```
 - **Advanced example**: include `refinement_config` paths/ops and layout slot values.
 
-## `describe_schema() -> str`
-Return a pretty-printed JSON summary of supported schema facets.
+## `describe_layouts() -> str`
+Return a pretty-printed JSON summary of supported layouts and their slots.
 
 - **Input contract**: none.
-- **Returns**: JSON string containing `version`, `slide_layouts`, `qualitative_aliases`.
+- **Returns**: JSON string containing `version` and `slide_layouts`.
 - **Failure modes**: serialization failure (rare) as `ValueError`.
 - **Minimal example**:
   ```python
   import json, render_slides
-  schema = json.loads(render_slides.describe_schema())
+  schema = json.loads(render_slides.describe_layouts())
   print(schema["slide_layouts"])
+  ```
+
+## `describe_tweaks() -> str`
+Return a pretty-printed JSON summary of all available tweaking operations for LLM orchestration.
+
+- **Input contract**: none.
+- **Returns**: JSON string containing `qualitative_tweaks`, `quantitative_tweaks`, and `structural_operations`.
+- **Failure modes**: serialization failure (rare) as `ValueError`.
+- **Minimal example**:
+  ```python
+  import json, render_slides
+  tweaks = json.loads(render_slides.describe_tweaks())
+  print(tweaks["qualitative_tweaks"])
   ```
 
 ## `list_paths(slide_id: int | None = None) -> str`

@@ -26,7 +26,14 @@ This repository currently contains:
 - CI parity harness workflow with mismatch artifact uploads at `.github/workflows/parity-harness.yml`
 - renderer-backed parity fixtures and thresholds for PNG + PPTX outputs via `scripts/parity_harness.py`
 
+## Documentation
+
+- [Python API Reference](docs/python-api.md)
+- [LLM Agent Orchestration Guide](docs/llm-agent-guide.md)
+- [Internal Architecture & Subsystems](docs/internal-architecture.md)
+
 ## Prerequisites
+
 
 Before building locally, install:
 - Python 3.9+ (including 3.13)
