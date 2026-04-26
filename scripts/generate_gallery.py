@@ -6,6 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from PIL import Image, ImageDraw
+import numpy as np
 
 # Ensure we're in the project root
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
@@ -121,6 +122,36 @@ elements:
     with open("fixtures/parity/text_length_test_complex.ir.json", "w") as f:
         json.dump(ir_length, f, indent=2)
 
+def generate_diff_image(img1_path, img2_path, out_path):
+    img1 = Image.open(img1_path).convert("RGB")
+    img2 = Image.open(img2_path).convert("RGB")
+    
+    if img1.size != img2.size:
+        img2 = img2.resize(img1.size)
+        
+    arr1 = np.array(img1).astype(np.int32)
+    arr2 = np.array(img2).astype(np.int32)
+    
+    diff_arr = np.full_like(arr1, 255) # Default white
+    
+    same = np.all(arr1 == arr2, axis=-1)
+    diff_arr[same] = arr1[same]
+    
+    diff = ~same
+    d1 = np.sum(arr1, axis=-1)
+    d2 = np.sum(arr2, axis=-1)
+    
+    is_dark1 = d1 < 384
+    is_dark2 = d2 < 384
+    
+    preview_black = diff & is_dark1 & (d1 < d2)
+    pptx_black = diff & is_dark2 & (d2 < d1)
+    
+    diff_arr[preview_black] = [255, 0, 0]
+    diff_arr[pptx_black] = [0, 255, 0]
+    
+    Image.fromarray(diff_arr.astype(np.uint8)).save(out_path)
+
 def generate_gallery(out_dir: Path):
     import render_slides
     
@@ -149,11 +180,11 @@ def generate_gallery(out_dir: Path):
         
         pdf_path = pptx_pdf_dir / f"{stem}.pdf"
         if pdf_path.exists():
-            subprocess.run(["pdftocairo", "-png", str(pdf_path), str(pptx_pdf_dir / "slide")], capture_output=True)
+            subprocess.run(["pdftocairo", "-png", "-scale-to-x", "1366", "-scale-to-y", "768", str(pdf_path), str(pptx_pdf_dir / "slide")], capture_output=True)
         
         markdown_content.append(f"## {stem}")
         markdown_content.append(f"[Download PPTX](renders/{pptx_path.name})")
-        markdown_content.append("<table><tr><th>PNG Preview</th><th>PPTX Rendering</th></tr>")
+        markdown_content.append("<table><tr><th>PNG Preview</th><th>PPTX Rendering</th><th>Diff</th></tr>")
         
         png_previews = sorted(png_tmp_dir.glob("slide-*.png"))
         
@@ -176,9 +207,13 @@ def generate_gallery(out_dir: Path):
             
             markdown_content.append(f"<tr><td><img src='renders/{final_preview.name}' width='400' /><br/><em>Slide {slide_idx}</em></td>")
             if final_pptx_png.exists():
-                markdown_content.append(f"<td><img src='renders/{final_pptx_png.name}' width='400' /><br/><em>Slide {slide_idx}</em></td></tr>")
+                markdown_content.append(f"<td><img src='renders/{final_pptx_png.name}' width='400' /><br/><em>Slide {slide_idx}</em></td>")
+                
+                final_diff_png = renders_dir / f"{stem}_diff_{slide_idx:03d}.png"
+                generate_diff_image(final_preview, final_pptx_png, final_diff_png)
+                markdown_content.append(f"<td><img src='renders/{final_diff_png.name}' width='400' /><br/><em>Slide {slide_idx}</em></td></tr>")
             else:
-                markdown_content.append("<td>Failed to render PPTX</td></tr>")
+                markdown_content.append("<td>Failed to render PPTX</td><td>N/A</td></tr>")
         
         markdown_content.append("</table>\n")
 

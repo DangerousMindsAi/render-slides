@@ -21,13 +21,15 @@ fn slot_text(slots: &serde_json::Map<String, Value>, name: &str) -> String {
     normalize_slot_text(slots.get(name))
 }
 
+use crate::ilm::markdown::{RichBlock, ListType};
+
 fn calculate_autofit_font_size(
     font_system: &mut FontSystem,
-    text: &str,
+    blocks: &[RichBlock],
     width_emu: i64,
     height_emu: i64,
     default_font_size_pt: f64,
-    bold: bool,
+    bold_default: bool,
 ) -> i64 {
     let width_px = width_emu as f32 / 9525.0;
     let height_px = height_emu as f32 / 9525.0;
@@ -35,25 +37,56 @@ fn calculate_autofit_font_size(
     let mut current_pt = default_font_size_pt;
     let min_pt = 10.0;
     
-    // Set up basic attributes (weight)
-    let weight = if bold { cosmic_text::Weight::BOLD } else { cosmic_text::Weight::NORMAL };
-    let attrs = Attrs::new().weight(weight).family(Family::Name("Arial"));
-    
     loop {
         let font_size_px = current_pt * 96.0 / 72.0;
         let line_height_px = font_size_px * 1.2;
+        let paragraph_spacing_px = line_height_px * 0.3; // 0.3 lines between paragraphs
         
-        let mut buffer = Buffer::new(font_system, Metrics::new(font_size_px as f32, line_height_px as f32));
-        buffer.set_size(Some(width_px as f32), None);
-        buffer.set_text(text, &attrs, Shaping::Advanced, None);
-        buffer.shape_until_scroll(font_system, false);
+        let mut total_height = 0.0;
         
-        let mut text_height = 0.0;
-        for run in buffer.layout_runs() {
-            text_height += run.line_height;
+        for block in blocks {
+            match block {
+                RichBlock::Paragraph(para) => {
+                    let indent_px = para.list_level as f64 * 342900.0 / 9525.0;
+                    let effective_width = (width_px as f64 - indent_px).max(10.0) as f32;
+                    
+                    let mut buffer = Buffer::new(font_system, Metrics::new(font_size_px as f32, line_height_px as f32));
+                    buffer.set_size(Some(effective_width), None);
+                    
+                    let mut spans_data: Vec<(String, Attrs)> = Vec::new();
+                    
+                    for run in &para.runs {
+                        let weight = if bold_default || run.bold { cosmic_text::Weight::BOLD } else { cosmic_text::Weight::NORMAL };
+                        let style = if run.italic { cosmic_text::Style::Italic } else { cosmic_text::Style::Normal };
+                        let family = if run.is_code || para.is_code_block { Family::Name("Courier New") } else { Family::Name("Arial") };
+                        
+                        let attrs = Attrs::new().weight(weight).style(style).family(family);
+                        spans_data.push((run.text.clone(), attrs));
+                    }
+                    
+                    let spans_refs: Vec<(&str, Attrs)> = spans_data.iter().map(|x| (x.0.as_str(), x.1.clone())).collect();
+                    
+                    buffer.set_rich_text(spans_refs.into_iter(), &Attrs::new(), Shaping::Advanced, None);
+                    buffer.shape_until_scroll(font_system, true);
+                    
+                    let mut text_height = 0.0;
+                    for run in buffer.layout_runs() {
+                        text_height += run.line_height;
+                    }
+                    
+                    total_height += text_height + paragraph_spacing_px as f32;
+                }
+                RichBlock::Table(_) => {
+                    // Ignore for now
+                }
+            }
         }
         
-        if text_height <= height_px as f32 || current_pt <= min_pt {
+        if total_height > 0.0 {
+            total_height -= paragraph_spacing_px as f32;
+        }
+        
+        if total_height <= height_px as f32 || current_pt <= min_pt {
             break;
         }
         
@@ -143,9 +176,11 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
             text = format!("— {}", text);
         }
         
+        let blocks = crate::ilm::markdown::parse_markdown(&text);
+        
         let font_size_pt = calculate_autofit_font_size(
             font_system,
-            &text,
+            &blocks,
             cx,
             cy,
             default_fs,
@@ -153,7 +188,7 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
         );
         
         elements.push(IlmElement::Text(IlmTextRun {
-            x, y, cx, cy, text, font_size_pt, bold, alignment
+            x, y, cx, cy, blocks, font_size_pt, bold, alignment
         }));
     }
 

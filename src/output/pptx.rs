@@ -69,7 +69,8 @@ pub(crate) fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
         for elem in &spec.elements {
             match elem {
                 IlmElement::Text(tb) => {
-                    let run_attr = if tb.bold { " b=\"1\"" } else { "" };
+                    use crate::ilm::markdown::{RichBlock, ListType};
+
                     let mut paragraphs = String::new();
                     let algn_str = match tb.alignment {
                         TextAlignment::Left => "l",
@@ -77,14 +78,48 @@ pub(crate) fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
                         TextAlignment::Right => "r",
                         TextAlignment::Justify => "just",
                     };
-                    for line in tb.text.lines() {
-                        paragraphs.push_str(&format!(
-                            "<a:p><a:pPr algn=\"{}\"/><a:r><a:rPr lang=\"en-US\" sz=\"{}\"{}><a:latin typeface=\"Arial\"/></a:rPr><a:t>{}</a:t></a:r></a:p>",
-                            algn_str,
-                            tb.font_size_pt * 100,
-                            run_attr,
-                            xml_escape(line)
-                        ));
+                    
+                    for block in &tb.blocks {
+                        match block {
+                            RichBlock::Paragraph(para) => {
+                                let mut run_xml = String::new();
+                                for r in &para.runs {
+                                    let b_attr = if r.bold || tb.bold { " b=\"1\"" } else { "" };
+                                    let i_attr = if r.italic { " i=\"1\"" } else { "" };
+                                    let strike_attr = if r.strikethrough { " strike=\"sngStrike\"" } else { "" };
+                                    let font_family = if r.is_code || para.is_code_block { "Courier New" } else { "Arial" };
+                                    
+                                    run_xml.push_str(&format!(
+                                        "<a:r><a:rPr lang=\"en-US\" sz=\"{}\"{}{}{}> <a:latin typeface=\"{}\"/> </a:rPr><a:t>{}</a:t></a:r>",
+                                        tb.font_size_pt * 100, b_attr, i_attr, strike_attr, font_family, xml_escape(&r.text)
+                                    ));
+                                }
+                                
+                                let mut bu_xml = String::new();
+                                let mut indent_attr = String::new();
+                                
+                                if para.list_level > 0 {
+                                    let indent_emu = para.list_level as i64 * 342900;
+                                    let hanging = 342900;
+                                    let lvl = para.list_level.saturating_sub(1);
+                                    indent_attr = format!(" lvl=\"{}\" marL=\"{}\" indent=\"-{}\"", lvl, indent_emu, hanging);
+                                    
+                                    if let Some(ListType::Ordered(_)) = para.list_type {
+                                        bu_xml = format!("<a:buAutoNum type=\"arabicPeriod\"/>");
+                                    } else {
+                                        bu_xml = format!("<a:buFont typeface=\"Arial\"/><a:buChar char=\"•\"/>");
+                                    }
+                                } else {
+                                    bu_xml = format!("<a:buNone/>");
+                                }
+                                
+                                paragraphs.push_str(&format!(
+                                    "<a:p><a:pPr algn=\"{}\"{}>{}</a:pPr>{}</a:p>",
+                                    algn_str, indent_attr, bu_xml, run_xml
+                                ));
+                            }
+                            RichBlock::Table(_) => {}
+                        }
                     }
                     if paragraphs.is_empty() {
                         paragraphs.push_str("<a:p/>");

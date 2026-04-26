@@ -1,0 +1,22 @@
+{
+  "slides": [
+    {
+      "layout": "two_column",
+      "params": {
+        "split": 0.5
+      },
+      "slots": {
+        "title": "Font Size Scaling (22pt & Auto-fit)",
+        "left": "# Large Header\nHere is a large block of text designed to test how well the autofit engine handles text that exceeds the bounds of the 22pt layout constraint. We want to see the text shrink linearly to match the box size.\n\n## Subheader\nMore text to push the limits of the bounding box. The left column is very tall but we will force it to shrink by adding an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text. This is an excessive amount of text.",
+        "right": "This is a short paragraph. It should stay at exactly 22pt and not shrink. The line spacing should look normal."
+      }
+    },
+    {
+      "layout": "title_body",
+      "slots": {
+        "title": "Title Body (24pt & Auto-fit)",
+        "body": "In the title body, the default size is 24pt. Let's add multiple paragraphs to see how paragraph spacing holds up under auto-fit constraints.\n\nSecond paragraph. This paragraph should have a small gap above it.\n\nThird paragraph. We need to write enough text to force the text to shrink. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence. So I will repeat this sentence."
+      }
+    }
+  ]
+}

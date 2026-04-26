@@ -2,7 +2,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use cairo::{Context, Format, ImageSurface};
-use pango::{FontDescription, Layout};
+use pango::FontDescription;
 use pangocairo::functions::{create_layout, show_layout};
 use pyo3::exceptions::PyValueError;
 use pyo3::PyResult;
@@ -58,7 +58,7 @@ fn rasterize_ilm_to_png_bytes(
     let height = 768;
     let surface = ImageSurface::create(Format::ARgb32, width, height)
         .map_err(|e| format!("Failed to create surface: {e}"))?;
-    
+
     {
         let cr = Context::new(&surface).map_err(|e| format!("Failed to create context: {e}"))?;
 
@@ -136,12 +136,14 @@ fn rasterize_ilm_to_png_bytes(
                                 }
                                 ImageScaling::FitWidth => {
                                     let scale = target_w / img_w_f;
-                                    cr.translate(target_x, target_y);
+                                    let out_h = img_h_f * scale;
+                                    cr.translate(target_x, target_y + (target_h - out_h) / 2.0);
                                     cr.scale(scale, scale);
                                 }
                                 ImageScaling::FitHeight => {
                                     let scale = target_h / img_h_f;
-                                    cr.translate(target_x, target_y);
+                                    let out_w = img_w_f * scale;
+                                    cr.translate(target_x + (target_w - out_w) / 2.0, target_y);
                                     cr.scale(scale, scale);
                                 }
                             }
@@ -150,7 +152,8 @@ fn rasterize_ilm_to_png_bytes(
                                 .map_err(|e| format!("Set source surface error: {e}"))?;
                             cr.paint().map_err(|e| format!("Paint error: {e}"))?;
 
-                            cr.restore().map_err(|e| format!("Context restore error: {e}"))?;
+                            cr.restore()
+                                .map_err(|e| format!("Context restore error: {e}"))?;
                         }
                     }
                 }
@@ -162,38 +165,118 @@ fn rasterize_ilm_to_png_bytes(
                     let target_x = to_px(run.x);
                     let target_y = to_px(run.y);
 
-                    cr.move_to(target_x, target_y);
+                    use crate::ilm::markdown::{ListType, RichBlock};
 
-                    let layout = create_layout(&cr);
-                    let mut font = FontDescription::new();
-                    // Use Arial explicitly to ensure font metrics parity with cosmic_text auto-fit and PPTX
-                    font.set_family("Arial");
-                    font.set_absolute_size(run.font_size_pt as f64 * 96.0 / 72.0 * pango::SCALE as f64);
-                    if run.bold {
-                        font.set_weight(pango::Weight::Bold);
-                    }
-                    layout.set_font_description(Some(&font));
-                    layout.set_text(&run.text);
-                    layout.set_width((target_w * pango::SCALE as f64) as i32);
-                    layout.set_wrap(pango::WrapMode::WordChar);
-                    match run.alignment {
-                        TextAlignment::Left => {
-                            layout.set_alignment(pango::Alignment::Left);
-                        }
-                        TextAlignment::Center => {
-                            layout.set_alignment(pango::Alignment::Center);
-                        }
-                        TextAlignment::Right => {
-                            layout.set_alignment(pango::Alignment::Right);
-                        }
-                        TextAlignment::Justify => {
-                            layout.set_justify(true);
-                            layout.set_alignment(pango::Alignment::Left);
-                        }
-                    }
+                    let font_size_px = run.font_size_pt as f64 * 96.0 / 72.0;
+                    // Match OpenXML's default of zero extra space between paragraphs
+                    let paragraph_spacing_px = 0.0;
 
-                    show_layout(&cr, &layout);
-                    cr.restore().map_err(|e| format!("Context restore error: {e}"))?;
+                    // OpenXML has a slight default top padding/ascent shift compared to Pango.
+                    // This offset matches the PowerPoint text box start position.
+                    let mut current_y = target_y + font_size_px * 0.08;
+
+                    for block in &run.blocks {
+                        match block {
+                            RichBlock::Paragraph(para) => {
+                                let indent_px = para.list_level as f64 * 342900.0 / 9525.0;
+                                let effective_width = (target_w - indent_px).max(10.0);
+                                let effective_x = target_x + indent_px;
+
+                                let mut bullet_str = String::new();
+                                if para.list_level > 0 {
+                                    if let Some(ListType::Ordered(n)) = para.list_type {
+                                        bullet_str = format!("{}. ", n);
+                                    } else {
+                                        bullet_str = "• ".to_string();
+                                    }
+                                }
+
+                                if !bullet_str.is_empty() {
+                                    let bullet_x = target_x + (para.list_level as f64 - 1.0) * 342900.0 / 9525.0;
+                                    cr.move_to(bullet_x, current_y);
+                                    let b_layout = create_layout(&cr);
+                                    let mut b_font = FontDescription::new();
+                                    b_font.set_family("Arial");
+                                    b_font.set_absolute_size(font_size_px * pango::SCALE as f64);
+                                    b_layout.set_font_description(Some(&b_font));
+                                    b_layout.set_text(&bullet_str);
+                                    show_layout(&cr, &b_layout);
+                                }
+
+                                cr.move_to(effective_x, current_y);
+                                let layout = create_layout(&cr);
+                                let mut font = FontDescription::new();
+                                font.set_family("Arial");
+                                font.set_absolute_size(font_size_px * pango::SCALE as f64);
+                                layout.set_font_description(Some(&font));
+                                
+                                // Line spacing offset to match OpenXML's default Arial metrics.
+                                // OpenXML's line gap increases non-linearly compared to Pango.
+                                // At 10pt (13.33px), they match perfectly (0px). At 28pt (37.33px), OpenXML is ~2.6px taller per line.
+                                let line_spacing_px = ((font_size_px - 13.33) * 0.10875).max(0.0);
+                                layout.set_spacing((line_spacing_px * pango::SCALE as f64) as i32);
+
+                                let mut markup = String::new();
+                                for r in &para.runs {
+                                    let escaped = glib::markup_escape_text(&r.text);
+                                    let mut span = escaped.to_string();
+
+                                    if r.bold || run.bold {
+                                        span = format!("<b>{}</b>", span);
+                                    }
+                                    if r.italic {
+                                        span = format!("<i>{}</i>", span);
+                                    }
+                                    if r.strikethrough {
+                                        span = format!("<s>{}</s>", span);
+                                    }
+                                    if r.is_code || para.is_code_block {
+                                        span = format!(
+                                            "<span font_family=\"Courier New\">{}</span>",
+                                            span
+                                        );
+                                    } else {
+                                        // OpenXML kerning offsets also scale non-linearly with font size.
+                                        // At 10pt (13.33px), no kerning offset is needed.
+                                        // At 24pt (32px), OpenXML text is tighter by ~0.128px per character.
+                                        let letter_spacing_px = ((font_size_px - 13.33) * 0.00685).max(0.0);
+                                        let letter_spacing = -(letter_spacing_px * pango::SCALE as f64) as i32;
+                                        span = format!("<span letter_spacing=\"{}\">{}</span>", letter_spacing, span);
+                                    }
+
+                                    markup.push_str(&span);
+                                }
+
+                                layout.set_markup(&markup);
+                                layout.set_width((effective_width * pango::SCALE as f64) as i32);
+                                layout.set_wrap(pango::WrapMode::WordChar);
+
+                                match run.alignment {
+                                    TextAlignment::Left => {
+                                        layout.set_alignment(pango::Alignment::Left)
+                                    }
+                                    TextAlignment::Center => {
+                                        layout.set_alignment(pango::Alignment::Center)
+                                    }
+                                    TextAlignment::Right => {
+                                        layout.set_alignment(pango::Alignment::Right)
+                                    }
+                                    TextAlignment::Justify => {
+                                        layout.set_justify(true);
+                                        layout.set_alignment(pango::Alignment::Left);
+                                    }
+                                }
+
+                                show_layout(&cr, &layout);
+
+                                let (_, height) = layout.pixel_size();
+                                current_y += height as f64 + paragraph_spacing_px;
+                            }
+                            RichBlock::Table(_) => {}
+                        }
+                    }
+                    cr.restore()
+                        .map_err(|e| format!("Context restore error: {e}"))?;
                 }
             }
         }

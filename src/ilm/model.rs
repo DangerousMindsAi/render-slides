@@ -6,13 +6,15 @@ pub(crate) enum TextAlignment {
     Justify,
 }
 
+use crate::ilm::markdown::RichBlock;
+
 #[derive(Clone)]
 pub(crate) struct IlmTextRun {
     pub(crate) x: i64,
     pub(crate) y: i64,
     pub(crate) cx: i64,
     pub(crate) cy: i64,
-    pub(crate) text: String,
+    pub(crate) blocks: Vec<RichBlock>,
     pub(crate) font_size_pt: i64,
     pub(crate) bold: bool,
     pub(crate) alignment: TextAlignment,
