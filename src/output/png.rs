@@ -36,19 +36,6 @@ fn draw_rich_paragraph(
         }
     }
 
-    if !bullet_str.is_empty() {
-        let bullet_x = target_x + (para.list_level as f64 - 1.0) * 342900.0 / 9525.0;
-        cr.move_to(bullet_x, current_y);
-        let b_layout = create_layout(cr);
-        let mut b_font = FontDescription::new();
-        b_font.set_family("Arial");
-        b_font.set_absolute_size(font_size_px * pango::SCALE as f64);
-        b_layout.set_font_description(Some(&b_font));
-        b_layout.set_text(&bullet_str);
-        show_layout(cr, &b_layout);
-    }
-
-    cr.move_to(effective_x, current_y);
     let layout = create_layout(cr);
     let mut font = FontDescription::new();
     font.set_family("Arial");
@@ -92,6 +79,25 @@ fn draw_rich_paragraph(
         }
     }
 
+    let l_baseline = layout.baseline() as f64 / pango::SCALE as f64;
+
+    if !bullet_str.is_empty() {
+        let bullet_x = target_x + (para.list_level as f64 - 1.0) * 342900.0 / 9525.0;
+        let b_layout = create_layout(cr);
+        let mut b_font = FontDescription::new();
+        b_font.set_family("Arial");
+        b_font.set_absolute_size(font_size_px * pango::SCALE as f64);
+        b_layout.set_font_description(Some(&b_font));
+        b_layout.set_text(&bullet_str);
+
+        let b_baseline = b_layout.baseline() as f64 / pango::SCALE as f64;
+        let b_y = current_y + l_baseline - b_baseline;
+
+        cr.move_to(bullet_x, b_y);
+        show_layout(cr, &b_layout);
+    }
+
+    cr.move_to(effective_x, current_y);
     show_layout(cr, &layout);
 
     let (_, height) = layout.pixel_size();
@@ -258,7 +264,10 @@ fn rasterize_ilm_to_png_bytes(
                         match block {
                             RichBlock::Paragraph(para) => {
                                 let height = draw_rich_paragraph(&cr, para, target_x, current_y, target_w, font_size_px, run.bold, &run.alignment);
-                                current_y += height + paragraph_spacing_px;
+                                current_y += height;
+                                if para.list_level == 0 {
+                                    current_y += paragraph_spacing_px;
+                                }
                             }
                             RichBlock::Table(_) => {} // Ignored inside text
                         }
