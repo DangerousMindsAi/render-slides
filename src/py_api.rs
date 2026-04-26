@@ -22,8 +22,8 @@ pub(crate) fn describe_layouts() -> PyResult<String> {
 }
 
 #[pyfunction]
-pub(crate) fn describe_tweaks() -> PyResult<String> {
-    serde_json::to_string_pretty(&schema::describe_tweaks())
+pub(crate) fn describe_tweaks(ir_json: &str) -> PyResult<String> {
+    serde_json::to_string_pretty(&schema::describe_tweaks(ir_json).map_err(PyValueError::new_err)?)
         .map_err(|e| PyValueError::new_err(format!("Failed to serialize tweaks summary: {e}")))
 }
 

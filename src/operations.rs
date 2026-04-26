@@ -18,6 +18,7 @@ pub(crate) fn operation_specs_for(path: &str) -> Option<Vec<OperationSpec>> {
         .iter()
         .filter(|entry| entry.path == path)
         .map(|entry| OperationSpec {
+            path: None,
             name: entry.name,
             description: entry.description,
             params: entry.params.to_vec(),
@@ -71,25 +72,25 @@ pub(crate) fn get_examples(path: &str, operation: &str) -> Result<Vec<OperationE
 
     let examples = match operation {
         "increase" => vec![OperationExample {
-            request: r#"{"path":"slides[1].style.body.font_size","op":"increase","step":1}"#,
+            request: r#"{"path":"slides[id=slide_123].style.body.font_size","op":"increase","step":1}"#,
             effect:
-                "Increases body font size for slide 1 by one point, clamped to configured bounds.",
+                "Increases body font size for the referenced slide by one point, clamped to configured bounds.",
         }],
         "decrease" => vec![OperationExample {
-            request: r#"{"path":"slides[1].style.body.font_size","op":"decrease","step":2}"#,
+            request: r#"{"path":"slides[id=slide_123].style.body.font_size","op":"decrease","step":2}"#,
             effect:
-                "Decreases body font size for slide 1 by two points, clamped to configured bounds.",
+                "Decreases body font size for the referenced slide by two points, clamped to configured bounds.",
         }],
         "set_alignment" => vec![OperationExample {
-            request: r#"{"path":"slides[0].style.alignment","op":"set_alignment","alignment":"left"}"#,
+            request: r#"{"path":"slides[id=slide_123].style.alignment","op":"set_alignment","alignment":"left"}"#,
             effect: "Aligns text in the targeted style scope to left alignment.",
         }],
         "set_text" => vec![OperationExample {
-            request: r#"{"path":"slides[2].slots.title","op":"set_text","text":"Q3 Rollout Update"}"#,
+            request: r#"{"path":"slides[id=slide_123].slots.title","op":"set_text","text":"Q3 Rollout Update"}"#,
             effect: "Replaces the target slot text with the provided string.",
         }],
         "set_layout" => vec![OperationExample {
-            request: r#"{"path":"slides[2].layout","op":"set_layout","layout":"comparison"}"#,
+            request: r#"{"path":"slides[id=slide_123].layout","op":"set_layout","layout":"comparison"}"#,
             effect: "Changes slide layout and triggers layout-specific required-slot checks.",
         }],
         _ => {

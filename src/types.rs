@@ -23,6 +23,8 @@ pub(crate) struct TweakInstructions {
 
 #[derive(Serialize, Clone)]
 pub(crate) struct OperationSpec {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) path: Option<String>,
     pub(crate) name: &'static str,
     pub(crate) description: &'static str,
     pub(crate) params: Vec<&'static str>,

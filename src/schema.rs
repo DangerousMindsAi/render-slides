@@ -65,57 +65,99 @@ pub(crate) fn describe_layouts() -> crate::types::LayoutsSummary {
     }
 }
 
-pub(crate) fn describe_tweaks() -> crate::types::TweakInstructions {
+pub(crate) fn describe_tweaks(ir_json: &str) -> Result<crate::types::TweakInstructions, String> {
+    let parsed = parse_ir(ir_json)?;
+    let empty_slides = vec![];
+    let slides = parsed.get("slides").and_then(Value::as_array).unwrap_or(&empty_slides);
+
     let mut qualitative = Vec::new();
     let mut quantitative = Vec::new();
 
     let mut seen = std::collections::HashSet::new();
 
-    for spec in crate::generated::TEMPLATE_OPERATION_SPECS {
-        if !seen.insert(spec.name) {
-            continue;
-        }
+    for (_, slide) in slides.iter().enumerate() {
+        let layout = slide.get("layout").and_then(Value::as_str).unwrap_or("");
+        let Some(slide_id) = slide.get("id").and_then(Value::as_str) else { continue; };
+        let Some(layout_def) = crate::generated::LAYOUT_DEFINITIONS.iter().find(|l| l.layout == layout) else { continue; };
 
-        let op = crate::types::OperationSpec {
-            name: spec.name,
-            description: spec.description,
-            params: spec.params.to_vec(),
-            bounds: spec.bounds,
-        };
+        for spec in crate::generated::TEMPLATE_OPERATION_SPECS {
+            let path = spec.path;
+            let parts: Vec<&str> = path.split('.').collect();
+            
+            let is_valid = if parts.len() >= 2 {
+                if parts[1] == "layout" {
+                    true
+                } else if parts[1] == "style" {
+                    if parts.len() > 2 && (parts[2] == "alignment" || parts[2] == "background") {
+                        true
+                    } else if parts.len() > 2 {
+                        layout_def.elements.iter().any(|e| e.slot == parts[2])
+                    } else {
+                        false
+                    }
+                } else if parts[1] == "slots" && parts.len() > 2 {
+                    layout_def.elements.iter().any(|e| e.slot == parts[2])
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
 
-        match spec.name {
-            "increase" | "decrease" | "set_alignment" | "set_layout" => qualitative.push(op),
-            "set_font_size" | "set_text" => quantitative.push(op),
-            _ => qualitative.push(op), // default fallback
+            if is_valid {
+                let instantiated_path = path.replacen("slides[*]", &format!("slides[id={}]", slide_id), 1);
+                
+                let key = format!("{}:{}", instantiated_path, spec.name);
+                if !seen.insert(key) {
+                    continue;
+                }
+
+                let op = crate::types::OperationSpec {
+                    path: Some(instantiated_path),
+                    name: spec.name,
+                    description: spec.description,
+                    params: spec.params.to_vec(),
+                    bounds: spec.bounds,
+                };
+
+                match spec.name {
+                    "increase" | "decrease" | "set_alignment" | "set_layout" => qualitative.push(op),
+                    "set_font_size" | "set_text" => quantitative.push(op),
+                    _ => qualitative.push(op), // default fallback
+                }
+            }
         }
     }
 
     let structural = vec![
         crate::types::OperationSpec {
+            path: None,
             name: "add_slide",
             description: "Appends a new slide with the specified layout to the presentation.",
             params: vec!["layout"],
             bounds: "layout must be a valid layout name",
         },
         crate::types::OperationSpec {
+            path: None,
             name: "remove_slide",
-            description: "Removes the slide at the target index.",
-            params: vec!["index"],
-            bounds: "index must be within bounds of slides array",
+            description: "Removes the slide with the target ID.",
+            params: vec!["id"],
+            bounds: "id must refer to an existing slide id",
         },
         crate::types::OperationSpec {
+            path: None,
             name: "reorder_slide",
             description: "Moves a slide from its current index to a new target index.",
-            params: vec!["from_index", "to_index"],
-            bounds: "indices must be within bounds of slides array",
+            params: vec!["id", "to_index"],
+            bounds: "id must refer to an existing slide id, to_index must be within bounds",
         },
     ];
 
-    crate::types::TweakInstructions {
+    Ok(crate::types::TweakInstructions {
         qualitative_tweaks: qualitative,
         quantitative_tweaks: quantitative,
         structural_operations: structural,
-    }
+    })
 }
 
 fn validate_layout_required_slots(parsed: &Value) -> Result<(), String> {

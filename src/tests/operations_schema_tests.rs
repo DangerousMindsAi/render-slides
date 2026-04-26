@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use crate::operations::{all_editable_paths, operation_specs_for};
-use crate::schema::{schema_summary, validate_ir};
+use crate::schema::{describe_layouts, validate_ir};
 
 #[test]
 fn validate_ir_accepts_minimal_valid_input() {
@@ -26,11 +26,10 @@ fn validate_ir_rejects_non_array_slides() {
 }
 
 #[test]
-fn schema_summary_contains_expected_layouts_and_aliases() {
-    let summary = schema_summary();
+fn describe_layouts_contains_expected_layouts() {
+    let summary = describe_layouts();
     assert_eq!(summary.version, "0.1");
-    assert!(summary.slide_layouts.contains(&"title_body"));
-    assert!(summary.qualitative_aliases.contains(&"left justify"));
+    assert!(summary.slide_layouts.iter().any(|l| l.name == "title_body"));
 }
 
 #[test]
@@ -72,6 +71,7 @@ fn template_manifest_paths_snapshot_is_stable() {
             "slides[*].slots.title",
             "slides[*].style.alignment",
             "slides[*].style.body.font_size",
+            "slides[*].style.title.font_size",
         ]
     );
 }
@@ -85,6 +85,7 @@ fn operation_specs_missing_for_unknown_path() {
 fn validate_ir_rejects_missing_required_slot_for_layout() {
     let parsed = json!({
         "slides": [{
+            "id": "slide_1",
             "layout": "title_body",
             "slots": { "title": "Missing body slot" }
         }]
@@ -99,6 +100,7 @@ fn validate_ir_rejects_missing_required_slot_for_layout() {
 fn validate_ir_accepts_required_slots_for_layout() {
     let parsed = json!({
         "slides": [{
+            "id": "slide_2",
             "layout": "comparison",
             "slots": { "title": "Tradeoffs", "left": "Pros", "right": "Cons" }
         }]

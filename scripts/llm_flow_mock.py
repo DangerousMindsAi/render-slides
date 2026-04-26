@@ -20,6 +20,7 @@ def step_2_llm_generates_slides():
     ast = {
         "slides": [
             {
+                "id": "slide_1",
                 "layout": "title_body",
                 "slots": {
                     "title": "Welcome to the Prototype",
@@ -31,9 +32,9 @@ def step_2_llm_generates_slides():
     print(json.dumps(ast, indent=2))
     return ast
 
-def step_3_describe_tweaks():
+def step_3_describe_tweaks(ast):
     print("\n=== STEP 3: Describe Tweaks (For LLM) ===")
-    tweaks_json = render_slides.describe_tweaks()
+    tweaks_json = render_slides.describe_tweaks(json.dumps(ast))
     tweaks = json.loads(tweaks_json)
     
     print("Prompt to LLM: 'You may now tweak the presentation using these operations:'")
@@ -46,8 +47,8 @@ def step_4_llm_applies_tweaks():
     # and explicitly set the body text font size to 36
     
     tweaks_requested = [
-        {"path": "slides[0].style.title.font_size", "operation": "increase", "step": 1},
-        {"path": "slides[0].style.body.font_size", "operation": "set_font_size", "size": 36}
+        {"path": "slides[id=slide_1].style.title.font_size", "operation": "increase", "step": 1},
+        {"path": "slides[id=slide_1].style.body.font_size", "operation": "set_font_size", "size": 36}
     ]
     
     print("LLM replies with the following tweaking instructions:")
@@ -63,7 +64,7 @@ def main():
     ast = step_2_llm_generates_slides()
     
     # 3. Fetch tweak operations
-    tweaks = step_3_describe_tweaks()
+    tweaks = step_3_describe_tweaks(ast)
     
     # 4. LLM requests tweaks
     requested_tweaks = step_4_llm_applies_tweaks()

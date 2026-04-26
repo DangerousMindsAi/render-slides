@@ -35,8 +35,9 @@
     "slide": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["layout", "slots"],
+      "required": ["id", "layout", "slots"],
       "properties": {
+        "id": { "type": "string" },
         "layout": {
           "type": "string",
           "enum": [

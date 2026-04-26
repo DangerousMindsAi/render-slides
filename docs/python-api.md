@@ -17,7 +17,6 @@ Use this map when jumping from API behavior to implementation:
 | `list_operations` | `src/py_api.rs::list_operations` | `src/operations.rs` |
 | `explain_operation` | `src/py_api.rs::explain_operation` | `src/operations.rs` |
 | `get_examples` | `src/py_api.rs::get_examples` | `src/operations.rs` |
-| `render_html_preview` | `src/py_api.rs::render_html_preview` | `src/html_preview.rs`, `src/theme.rs`, `src/templating.rs` |
 | `render_pngs` | `src/py_api.rs::render_pngs` | `src/output/png.rs`, `src/ilm/*` |
 | `render_pptx` | `src/py_api.rs::render_pptx` | `src/output/pptx.rs`, `src/ilm/*` |
 | `copy_source_to_sink` | `src/py_api.rs::copy_source_to_sink` | `src/transport.rs` |
@@ -25,23 +24,6 @@ Use this map when jumping from API behavior to implementation:
 | `register_sink_handler` | `src/py_api.rs::register_sink_handler` | `src/transport.rs` |
 
 ## Quick recipes
-
-### Validate then render HTML preview
-
-```python
-import json
-import render_slides
-
-ir = {
-    "slides": [
-        {"layout": "title_body", "slots": {"title": "Q2 Review", "body": "Highlights"}}
-    ]
-}
-
-render_slides.validate(json.dumps(ir))
-html = render_slides.render_html_preview(json.dumps(ir))
-print(html[:120])
-```
 
 ### Render PNG slides
 
@@ -106,16 +88,17 @@ Return a pretty-printed JSON summary of supported layouts and their slots.
   print(schema["slide_layouts"])
   ```
 
-## `describe_tweaks() -> str`
-Return a pretty-printed JSON summary of all available tweaking operations for LLM orchestration.
+## `describe_tweaks(ir_json: str) -> str`
+Return a pretty-printed JSON summary of all available tweaking operations specific to the sent slide deck.
 
-- **Input contract**: none.
-- **Returns**: JSON string containing `qualitative_tweaks`, `quantitative_tweaks`, and `structural_operations`.
-- **Failure modes**: serialization failure (rare) as `ValueError`.
+- **Input contract**: valid IR JSON.
+- **Returns**: JSON string containing `qualitative_tweaks`, `quantitative_tweaks`, and `structural_operations`, with the editable paths fully instantiated for the given slide indices and valid layout slots.
+- **Failure modes**: validation or serialization failure as `ValueError`.
 - **Minimal example**:
   ```python
   import json, render_slides
-  tweaks = json.loads(render_slides.describe_tweaks())
+  ir = {"slides": [{"layout": "title_body", "slots": {"title": "Hello", "body": "World"}}]}
+  tweaks = json.loads(render_slides.describe_tweaks(json.dumps(ir)))
   print(tweaks["qualitative_tweaks"])
   ```
 
@@ -182,17 +165,6 @@ Register a sink alias to an existing built-in sink scheme.
 - **Input contract** mirrors `register_source_handler`.
 - **Returns**: `"ok"`.
 - **Failure modes**: unknown target scheme or invalid alias.
-
-## `render_html_preview(ir_json: str) -> str`
-Render deterministic preview HTML from IR slides + theme tokens.
-
-- **Input contract**: valid IR JSON with known `layout` values and required slots.
-- **Returns**: full HTML document string.
-- **Failure modes**:
-  - Invalid JSON
-  - Validation errors (schema/semantic)
-  - Missing template registration
-- **Advanced example**: include `theme.typography` and `theme.colors` overrides.
 
 ## `render_pngs(ir_json: str, output_uri: str) -> str`
 Render one PNG file per slide to target output location.
