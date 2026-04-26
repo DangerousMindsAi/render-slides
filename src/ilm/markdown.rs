@@ -145,6 +145,14 @@ pub(crate) fn parse_markdown(text: &str) -> Vec<RichBlock> {
                     ensure_para(&mut current_para, &list_stack, is_quote, is_code_block);
                 }
                 Tag::List(start) => {
+                    if let Some(mut p) = current_para.take() {
+                        if let Some(last_run) = p.runs.last_mut() {
+                            if last_run.text.ends_with('\n') {
+                                last_run.text.pop();
+                            }
+                        }
+                        push_paragraph!(p);
+                    }
                     let l_type = if let Some(n) = start {
                         ListType::Ordered(n)
                     } else {
@@ -153,6 +161,14 @@ pub(crate) fn parse_markdown(text: &str) -> Vec<RichBlock> {
                     list_stack.push((l_type, start.unwrap_or(1)));
                 }
                 Tag::Item => {
+                    if let Some(mut p) = current_para.take() {
+                        if let Some(last_run) = p.runs.last_mut() {
+                            if last_run.text.ends_with('\n') {
+                                last_run.text.pop();
+                            }
+                        }
+                        push_paragraph!(p);
+                    }
                     // Each item can have multiple paragraphs. The first paragraph or tight text will use this state.
                     // We don't start a paragraph immediately, we wait for Tag::Paragraph or Event::Text.
                 }
