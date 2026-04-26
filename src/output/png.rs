@@ -295,14 +295,18 @@ fn rasterize_ilm_to_png_bytes(
                             cr.rectangle(current_x, current_y, cell_w, row_h);
                             let _ = cr.stroke();
                             
+                            let cell_padding_x_px = 91440.0 / 9525.0; // 9.6px
+                            let cell_padding_y_px = 45720.0 / 9525.0; // 4.8px
+
                             // Draw text
                             let font_size_px = cell.text.font_size_pt as f64 * 96.0 / 72.0;
-                            let mut text_y = current_y + font_size_px * 0.08;
+                            let mut text_y = current_y + cell_padding_y_px + font_size_px * 0.08;
+                            let effective_col_width = cell_w - (cell_padding_x_px * 2.0);
                             
                             for block in &cell.text.blocks {
                                 if let crate::ilm::markdown::RichBlock::Paragraph(para) = block {
-                                    let height = draw_rich_paragraph(&cr, para, current_x, text_y, cell_w, font_size_px, cell.text.bold, &cell.alignment);
-                                    text_y += height;
+                                    let height = draw_rich_paragraph(&cr, para, current_x + cell_padding_x_px, text_y, effective_col_width, font_size_px, cell.text.bold, &cell.alignment);
+                                    text_y += height + font_size_px * 0.05;
                                 }
                             }
                             

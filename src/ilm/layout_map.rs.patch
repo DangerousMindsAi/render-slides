@@ -1,0 +1,7 @@
+--- src/ilm/layout_map.rs
++++ src/ilm/layout_map.rs
+@@ -298,6 +298,7 @@
+                     }
+                     
++                    println!("TABLE y: {}, current_y_px: {}", y + (current_y_px * 9525.0) as i64, current_y_px);
+                     elements.push(IlmElement::Table(IlmTable {
