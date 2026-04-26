@@ -36,8 +36,10 @@ def get_text_bounds(img):
         
     return lines_y, lines_x
 
-preview = Image.open("gallery/renders/alignment_test_complex_preview_001.png")
-pptx = Image.open("gallery/renders/alignment_test_complex_pptx_001.png").resize(preview.size)
+import sys
+fixture_name = sys.argv[1] if len(sys.argv) > 1 else "alignment_test_complex"
+preview = Image.open(f"gallery/renders/{fixture_name}_preview_001.png")
+pptx = Image.open(f"gallery/renders/{fixture_name}_pptx_001.png").resize(preview.size)
 
 p_y, p_x = get_text_bounds(preview)
 x_y, x_x = get_text_bounds(pptx)

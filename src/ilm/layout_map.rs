@@ -75,7 +75,7 @@ fn calculate_autofit_font_size(
     loop {
         let font_size_px = current_pt as f32 * 96.0 / 72.0;
         let line_height_px = font_size_px * 1.2;
-        let paragraph_spacing_px = line_height_px * 0.3;
+        let paragraph_spacing_px = font_size_px * 0.05;
         
         let mut total_height = 0.0;
         
@@ -211,7 +211,7 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
 
         let font_size_px = font_size_pt as f32 * 96.0 / 72.0;
         let line_height_px = font_size_px * 1.2;
-        let paragraph_spacing_px = line_height_px * 0.3;
+        let paragraph_spacing_px = font_size_px * 0.05;
         let width_px = cx as f32 / 9525.0;
 
         let mut current_y_px = 0.0;

@@ -255,7 +255,7 @@ fn rasterize_ilm_to_png_bytes(
                     use crate::ilm::markdown::RichBlock;
 
                     let font_size_px = run.font_size_pt as f64 * 96.0 / 72.0;
-                    let paragraph_spacing_px = 0.0;
+                    let paragraph_spacing_px = font_size_px * 0.05;
                     let mut current_y = target_y + font_size_px * 0.08;
 
                     for block in &run.blocks {
