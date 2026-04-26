@@ -7,7 +7,8 @@ use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
 use crate::ilm::resolve_ilm_slides;
-use crate::ilm::model::{IlmElement, ImageScaling, TextAlignment};
+use crate::ilm::model::{IlmElement, ImageScaling, TextAlignment, IlmTextRun};
+use crate::ilm::markdown::{RichBlock, ListType};
 use crate::schema::parse_ir;
 
 fn xml_escape(input: &str) -> String {
@@ -16,6 +17,63 @@ fn xml_escape(input: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&#39;")
+}
+
+fn render_text_run_blocks(tb: &IlmTextRun) -> String {
+    let mut paragraphs = String::new();
+    let algn_str = match tb.alignment {
+        TextAlignment::Left => "l",
+        TextAlignment::Center => "ctr",
+        TextAlignment::Right => "r",
+        TextAlignment::Justify => "just",
+    };
+    
+    for block in &tb.blocks {
+        match block {
+            RichBlock::Paragraph(para) => {
+                let mut run_xml = String::new();
+                for r in &para.runs {
+                    let b_attr = if r.bold || tb.bold { " b=\"1\"" } else { "" };
+                    let i_attr = if r.italic { " i=\"1\"" } else { "" };
+                    let strike_attr = if r.strikethrough { " strike=\"sngStrike\"" } else { "" };
+                    let font_family = if r.is_code || para.is_code_block { "Courier New" } else { "Arial" };
+                    
+                    run_xml.push_str(&format!(
+                        "<a:r><a:rPr lang=\"en-US\" sz=\"{}\"{}{}{}> <a:latin typeface=\"{}\"/> </a:rPr><a:t>{}</a:t></a:r>",
+                        tb.font_size_pt * 100, b_attr, i_attr, strike_attr, font_family, xml_escape(&r.text)
+                    ));
+                }
+                
+                let mut bu_xml = String::new();
+                let mut indent_attr = String::new();
+                
+                if para.list_level > 0 {
+                    let indent_emu = para.list_level as i64 * 342900;
+                    let hanging = 342900;
+                    let lvl = para.list_level.saturating_sub(1);
+                    indent_attr = format!(" lvl=\"{}\" marL=\"{}\" indent=\"-{}\"", lvl, indent_emu, hanging);
+                    
+                    if let Some(ListType::Ordered(_)) = para.list_type {
+                        bu_xml = format!("<a:buAutoNum type=\"arabicPeriod\"/>");
+                    } else {
+                        bu_xml = format!("<a:buFont typeface=\"Arial\"/><a:buChar char=\"•\"/>");
+                    }
+                } else {
+                    bu_xml = format!("<a:buNone/>");
+                }
+                
+                paragraphs.push_str(&format!(
+                    "<a:p><a:pPr algn=\"{}\"{}>{}</a:pPr>{}</a:p>",
+                    algn_str, indent_attr, bu_xml, run_xml
+                ));
+            }
+            RichBlock::Table(_) => {}
+        }
+    }
+    if paragraphs.is_empty() {
+        paragraphs = format!("<a:p><a:pPr algn=\"{}\"><a:buNone/></a:pPr><a:endParaRPr lang=\"en-US\" sz=\"{}\"/></a:p>", algn_str, tb.font_size_pt * 100);
+    }
+    paragraphs
 }
 
 fn detect_image_extension(bytes: &[u8]) -> &'static str {
@@ -69,62 +127,29 @@ pub(crate) fn build_pptx_bytes(parsed: &Value) -> Result<Vec<u8>, String> {
         for elem in &spec.elements {
             match elem {
                 IlmElement::Text(tb) => {
-                    use crate::ilm::markdown::{RichBlock, ListType};
-
-                    let mut paragraphs = String::new();
-                    let algn_str = match tb.alignment {
-                        TextAlignment::Left => "l",
-                        TextAlignment::Center => "ctr",
-                        TextAlignment::Right => "r",
-                        TextAlignment::Justify => "just",
-                    };
-                    
-                    for block in &tb.blocks {
-                        match block {
-                            RichBlock::Paragraph(para) => {
-                                let mut run_xml = String::new();
-                                for r in &para.runs {
-                                    let b_attr = if r.bold || tb.bold { " b=\"1\"" } else { "" };
-                                    let i_attr = if r.italic { " i=\"1\"" } else { "" };
-                                    let strike_attr = if r.strikethrough { " strike=\"sngStrike\"" } else { "" };
-                                    let font_family = if r.is_code || para.is_code_block { "Courier New" } else { "Arial" };
-                                    
-                                    run_xml.push_str(&format!(
-                                        "<a:r><a:rPr lang=\"en-US\" sz=\"{}\"{}{}{}> <a:latin typeface=\"{}\"/> </a:rPr><a:t>{}</a:t></a:r>",
-                                        tb.font_size_pt * 100, b_attr, i_attr, strike_attr, font_family, xml_escape(&r.text)
-                                    ));
-                                }
-                                
-                                let mut bu_xml = String::new();
-                                let mut indent_attr = String::new();
-                                
-                                if para.list_level > 0 {
-                                    let indent_emu = para.list_level as i64 * 342900;
-                                    let hanging = 342900;
-                                    let lvl = para.list_level.saturating_sub(1);
-                                    indent_attr = format!(" lvl=\"{}\" marL=\"{}\" indent=\"-{}\"", lvl, indent_emu, hanging);
-                                    
-                                    if let Some(ListType::Ordered(_)) = para.list_type {
-                                        bu_xml = format!("<a:buAutoNum type=\"arabicPeriod\"/>");
-                                    } else {
-                                        bu_xml = format!("<a:buFont typeface=\"Arial\"/><a:buChar char=\"•\"/>");
-                                    }
-                                } else {
-                                    bu_xml = format!("<a:buNone/>");
-                                }
-                                
-                                paragraphs.push_str(&format!(
-                                    "<a:p><a:pPr algn=\"{}\"{}>{}</a:pPr>{}</a:p>",
-                                    algn_str, indent_attr, bu_xml, run_xml
-                                ));
-                            }
-                            RichBlock::Table(_) => {}
+                    let paragraphs = render_text_run_blocks(tb);
+                    shapes_xml.push_str(&format!(r#"<p:sp><p:nvSpPr><p:cNvPr id="{}" name="TextBox {}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="{}" y="{}"/><a:ext cx="{}" cy="{}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="0" rIns="0" tIns="0" bIns="0"/><a:lstStyle/>{}</p:txBody></p:sp>"#, shape_id, shape_id, tb.x, tb.y, tb.cx, tb.cy, paragraphs));
+                    shape_id += 1;
+                }
+                IlmElement::Table(tbl) => {
+                    let mut tbl_xml = String::new();
+                    tbl_xml.push_str("<a:tbl><a:tblPr/><a:tblGrid>");
+                    for cw in &tbl.col_widths_emu {
+                        tbl_xml.push_str(&format!("<a:gridCol w=\"{}\"/>", cw));
+                    }
+                    tbl_xml.push_str("</a:tblGrid>");
+                    for row in &tbl.rows {
+                        tbl_xml.push_str(&format!("<a:tr h=\"{}\">", row.row_height_emu));
+                        for cell in &row.cells {
+                            let cell_paragraphs = render_text_run_blocks(&cell.text);
+                            let fill_xml = if row.is_header { "<a:solidFill><a:srgbClr val=\"D9D9D9\"/></a:solidFill>" } else { "" };
+                            let border_xml = "<a:lnL w=\"12700\"><a:solidFill><a:srgbClr val=\"000000\"/></a:solidFill></a:lnL><a:lnR w=\"12700\"><a:solidFill><a:srgbClr val=\"000000\"/></a:solidFill></a:lnR><a:lnT w=\"12700\"><a:solidFill><a:srgbClr val=\"000000\"/></a:solidFill></a:lnT><a:lnB w=\"12700\"><a:solidFill><a:srgbClr val=\"000000\"/></a:solidFill></a:lnB>";
+                            tbl_xml.push_str(&format!("<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>{}</a:txBody><a:tcPr>{}{}</a:tcPr></a:tc>", cell_paragraphs, border_xml, fill_xml));
                         }
+                        tbl_xml.push_str("</a:tr>");
                     }
-                    if paragraphs.is_empty() {
-                        paragraphs.push_str("<a:p/>");
-                    }
-                    shapes_xml.push_str(&format!("<p:sp><p:nvSpPr><p:cNvPr id=\"{}\" name=\"TextBox {}\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"{}\" y=\"{}\"/><a:ext cx=\"{}\" cy=\"{}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap=\"square\" lIns=\"0\" rIns=\"0\" tIns=\"0\" bIns=\"0\"/><a:lstStyle/>{}</p:txBody></p:sp>", shape_id, shape_id, tb.x, tb.y, tb.cx, tb.cy, paragraphs));
+                    tbl_xml.push_str("</a:tbl>");
+                    shapes_xml.push_str(&format!(r#"<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="{}" name="Table{}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="{}" y="{}"/><a:ext cx="{}" cy="{}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table">{}</a:graphicData></a:graphic></p:graphicFrame>"#, shape_id, shape_id, tbl.x, tbl.y, tbl.cx, tbl.cy, tbl_xml));
                     shape_id += 1;
                 }
                 IlmElement::Image(img) => {

@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::model::{IlmElement, IlmImage, IlmSlide, IlmTextRun, ImageScaling, TextAlignment};
+use crate::ilm::model::{IlmElement, IlmImage, IlmSlide, IlmTextRun, IlmTable, IlmTableRow, IlmTableCell, ImageScaling, TextAlignment};
 use crate::generated;
 use crate::ilm::expr::{evaluate, EvalContext};
 use std::collections::BTreeMap;
@@ -21,7 +21,42 @@ fn slot_text(slots: &serde_json::Map<String, Value>, name: &str) -> String {
     normalize_slot_text(slots.get(name))
 }
 
-use crate::ilm::markdown::{RichBlock, ListType};
+use crate::ilm::markdown::{RichBlock, ListType, RichParagraph};
+
+fn measure_paragraph(
+    para: &RichParagraph,
+    font_system: &mut FontSystem,
+    width_px: f32,
+    font_size_px: f32,
+    line_height_px: f32,
+    bold_default: bool,
+) -> f32 {
+    let indent_px = para.list_level as f64 * 342900.0 / 9525.0;
+    let effective_width = (width_px as f64 - indent_px).max(10.0) as f32;
+    
+    let mut buffer = Buffer::new(font_system, Metrics::new(font_size_px, line_height_px));
+    buffer.set_size(Some(effective_width), None);
+    
+    let mut spans_data: Vec<(String, Attrs)> = Vec::new();
+    for run in &para.runs {
+        let weight = if bold_default || run.bold { cosmic_text::Weight::BOLD } else { cosmic_text::Weight::NORMAL };
+        let style = if run.italic { cosmic_text::Style::Italic } else { cosmic_text::Style::Normal };
+        let family = if run.is_code || para.is_code_block { Family::Name("Courier New") } else { Family::Name("Arial") };
+        
+        let attrs = Attrs::new().weight(weight).style(style).family(family);
+        spans_data.push((run.text.clone(), attrs));
+    }
+    
+    let spans_refs: Vec<(&str, Attrs)> = spans_data.iter().map(|x| (x.0.as_str(), x.1.clone())).collect();
+    buffer.set_rich_text(spans_refs.into_iter(), &Attrs::new(), Shaping::Advanced, None);
+    buffer.shape_until_scroll(font_system, true);
+    
+    let mut text_height = 0.0;
+    for run in buffer.layout_runs() {
+        text_height += run.line_height;
+    }
+    text_height
+}
 
 fn calculate_autofit_font_size(
     font_system: &mut FontSystem,
@@ -38,46 +73,33 @@ fn calculate_autofit_font_size(
     let min_pt = 10.0;
     
     loop {
-        let font_size_px = current_pt * 96.0 / 72.0;
+        let font_size_px = current_pt as f32 * 96.0 / 72.0;
         let line_height_px = font_size_px * 1.2;
-        let paragraph_spacing_px = line_height_px * 0.3; // 0.3 lines between paragraphs
+        let paragraph_spacing_px = line_height_px * 0.3;
         
         let mut total_height = 0.0;
         
         for block in blocks {
             match block {
                 RichBlock::Paragraph(para) => {
-                    let indent_px = para.list_level as f64 * 342900.0 / 9525.0;
-                    let effective_width = (width_px as f64 - indent_px).max(10.0) as f32;
-                    
-                    let mut buffer = Buffer::new(font_system, Metrics::new(font_size_px as f32, line_height_px as f32));
-                    buffer.set_size(Some(effective_width), None);
-                    
-                    let mut spans_data: Vec<(String, Attrs)> = Vec::new();
-                    
-                    for run in &para.runs {
-                        let weight = if bold_default || run.bold { cosmic_text::Weight::BOLD } else { cosmic_text::Weight::NORMAL };
-                        let style = if run.italic { cosmic_text::Style::Italic } else { cosmic_text::Style::Normal };
-                        let family = if run.is_code || para.is_code_block { Family::Name("Courier New") } else { Family::Name("Arial") };
-                        
-                        let attrs = Attrs::new().weight(weight).style(style).family(family);
-                        spans_data.push((run.text.clone(), attrs));
-                    }
-                    
-                    let spans_refs: Vec<(&str, Attrs)> = spans_data.iter().map(|x| (x.0.as_str(), x.1.clone())).collect();
-                    
-                    buffer.set_rich_text(spans_refs.into_iter(), &Attrs::new(), Shaping::Advanced, None);
-                    buffer.shape_until_scroll(font_system, true);
-                    
-                    let mut text_height = 0.0;
-                    for run in buffer.layout_runs() {
-                        text_height += run.line_height;
-                    }
-                    
-                    total_height += text_height + paragraph_spacing_px as f32;
+                    let h = measure_paragraph(para, font_system, width_px, font_size_px, line_height_px, bold_default);
+                    total_height += h + paragraph_spacing_px;
                 }
-                RichBlock::Table(_) => {
-                    // Ignore for now
+                RichBlock::Table(table) => {
+                    let num_cols = table.column_alignments.len().max(1);
+                    let col_width_px = width_px / num_cols as f32;
+                    for row in &table.rows {
+                        let mut max_cell_height: f32 = 0.0;
+                        for cell in &row.cells {
+                            let mut cell_height: f32 = 0.0;
+                            for p in &cell.paragraphs {
+                                cell_height += measure_paragraph(p, font_system, col_width_px, font_size_px, line_height_px, bold_default) + paragraph_spacing_px;
+                            }
+                            if cell_height > 0.0 { cell_height -= paragraph_spacing_px; }
+                            max_cell_height = max_cell_height.max(cell_height);
+                        }
+                        total_height += max_cell_height;
+                    }
                 }
             }
         }
@@ -169,7 +191,6 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
         }
         
         let raw_text = normalize_slot_text(slot_value);
-        let bold = elem.bold.unwrap_or(false);
         
         let mut text = raw_text.clone();
         if layout_name == "quote" && elem.slot == "attribution" {
@@ -178,18 +199,112 @@ pub(crate) fn ilm_slide_from_ir(slide: &Value, font_system: &mut FontSystem) -> 
         
         let blocks = crate::ilm::markdown::parse_markdown(&text);
         
+        let bold_default = elem.bold.unwrap_or(false);
         let font_size_pt = calculate_autofit_font_size(
             font_system,
             &blocks,
             cx,
             cy,
             default_fs,
-            bold,
+            bold_default,
         );
-        
-        elements.push(IlmElement::Text(IlmTextRun {
-            x, y, cx, cy, blocks, font_size_pt, bold, alignment
-        }));
+
+        let font_size_px = font_size_pt as f32 * 96.0 / 72.0;
+        let line_height_px = font_size_px * 1.2;
+        let paragraph_spacing_px = line_height_px * 0.3;
+        let width_px = cx as f32 / 9525.0;
+
+        let mut current_y_px = 0.0;
+        let mut current_text_blocks = Vec::new();
+
+        macro_rules! flush_text {
+            () => {
+                if !current_text_blocks.is_empty() {
+                    let mut h = 0.0;
+                    for p in current_text_blocks.iter() {
+                        if let RichBlock::Paragraph(para) = p {
+                            h += measure_paragraph(para, font_system, width_px, font_size_px, line_height_px, bold_default) + paragraph_spacing_px;
+                        }
+                    }
+                    if h > 0.0 { h -= paragraph_spacing_px; }
+                    
+                    elements.push(IlmElement::Text(IlmTextRun {
+                        x,
+                        y: y + (current_y_px * 9525.0) as i64,
+                        cx,
+                        cy: (h * 9525.0) as i64,
+                        blocks: current_text_blocks.clone(),
+                        font_size_pt,
+                        bold: bold_default,
+                        alignment: alignment.clone(),
+                    }));
+                    
+                    current_y_px += h + paragraph_spacing_px;
+                    current_text_blocks.clear();
+                }
+            };
+        }
+
+        for block in blocks {
+            match block {
+                RichBlock::Paragraph(_) => {
+                    current_text_blocks.push(block);
+                }
+                RichBlock::Table(table) => {
+                    flush_text!();
+                    
+                    let num_cols = table.column_alignments.len().max(1);
+                    let col_width_px = width_px / num_cols as f32;
+                    
+                    let mut ilm_rows = Vec::new();
+                    let mut total_table_height = 0.0;
+                    
+                    for row in &table.rows {
+                        let mut max_cell_height: f32 = 0.0;
+                        let mut ilm_cells = Vec::new();
+                        
+                        for (c_idx, cell) in row.cells.iter().enumerate() {
+                            let mut cell_height: f32 = 0.0;
+                            for p in &cell.paragraphs {
+                                cell_height += measure_paragraph(p, font_system, col_width_px, font_size_px, line_height_px, bold_default) + paragraph_spacing_px;
+                            }
+                            if cell_height > 0.0 { cell_height -= paragraph_spacing_px; }
+                            max_cell_height = max_cell_height.max(cell_height);
+                            
+                            ilm_cells.push(IlmTableCell {
+                                text: IlmTextRun {
+                                    x: 0, y: 0, cx: 0, cy: 0, // Unused internal coords
+                                    blocks: cell.paragraphs.iter().map(|p| RichBlock::Paragraph(p.clone())).collect(),
+                                    font_size_pt,
+                                    bold: row.is_header || bold_default,
+                                    alignment: cell.alignment.clone(),
+                                },
+                                alignment: cell.alignment.clone(),
+                            });
+                        }
+                        
+                        total_table_height += max_cell_height;
+                        ilm_rows.push(IlmTableRow {
+                            cells: ilm_cells,
+                            is_header: row.is_header,
+                            row_height_emu: (max_cell_height * 9525.0) as i64,
+                        });
+                    }
+                    
+                    elements.push(IlmElement::Table(IlmTable {
+                        x,
+                        y: y + (current_y_px * 9525.0) as i64,
+                        cx,
+                        cy: (total_table_height * 9525.0) as i64,
+                        rows: ilm_rows,
+                        col_widths_emu: vec![(col_width_px * 9525.0) as i64; num_cols],
+                    }));
+                    
+                    current_y_px += total_table_height + paragraph_spacing_px;
+                }
+            }
+        }
+        flush_text!();
     }
 
     Some(IlmSlide { elements })

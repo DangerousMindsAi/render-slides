@@ -43,6 +43,22 @@ Compare the generated PNG preview against the LibreOffice PPTX rendering.
 <td><img src='renders/image_test_complex_diff_001.png' width='400' /><br/><em>Slide 1</em></td></tr>
 </table>
 
+## markdown_lists_complex
+[Download PPTX](renders/markdown_lists_complex.pptx)
+<table><tr><th>PNG Preview</th><th>PPTX Rendering</th><th>Diff</th></tr>
+<tr><td><img src='renders/markdown_lists_complex_preview_001.png' width='400' /><br/><em>Slide 1</em></td>
+<td><img src='renders/markdown_lists_complex_pptx_001.png' width='400' /><br/><em>Slide 1</em></td>
+<td><img src='renders/markdown_lists_complex_diff_001.png' width='400' /><br/><em>Slide 1</em></td></tr>
+</table>
+
+## markdown_tables_complex
+[Download PPTX](renders/markdown_tables_complex.pptx)
+<table><tr><th>PNG Preview</th><th>PPTX Rendering</th><th>Diff</th></tr>
+<tr><td><img src='renders/markdown_tables_complex_preview_001.png' width='400' /><br/><em>Slide 1</em></td>
+<td><img src='renders/markdown_tables_complex_pptx_001.png' width='400' /><br/><em>Slide 1</em></td>
+<td><img src='renders/markdown_tables_complex_diff_001.png' width='400' /><br/><em>Slide 1</em></td></tr>
+</table>
+
 ## markdown_test_complex
 [Download PPTX](renders/markdown_test_complex.pptx)
 <table><tr><th>PNG Preview</th><th>PPTX Rendering</th><th>Diff</th></tr>
@@ -105,4 +121,15 @@ Compare the generated PNG preview against the LibreOffice PPTX rendering.
 <tr><td><img src='renders/two_column_split_complex_preview_001.png' width='400' /><br/><em>Slide 1</em></td>
 <td><img src='renders/two_column_split_complex_pptx_001.png' width='400' /><br/><em>Slide 1</em></td>
 <td><img src='renders/two_column_split_complex_diff_001.png' width='400' /><br/><em>Slide 1</em></td></tr>
+</table>
+
+## typography_font_sizes_complex
+[Download PPTX](renders/typography_font_sizes_complex.pptx)
+<table><tr><th>PNG Preview</th><th>PPTX Rendering</th><th>Diff</th></tr>
+<tr><td><img src='renders/typography_font_sizes_complex_preview_001.png' width='400' /><br/><em>Slide 1</em></td>
+<td><img src='renders/typography_font_sizes_complex_pptx_001.png' width='400' /><br/><em>Slide 1</em></td>
+<td><img src='renders/typography_font_sizes_complex_diff_001.png' width='400' /><br/><em>Slide 1</em></td></tr>
+<tr><td><img src='renders/typography_font_sizes_complex_preview_002.png' width='400' /><br/><em>Slide 2</em></td>
+<td><img src='renders/typography_font_sizes_complex_pptx_002.png' width='400' /><br/><em>Slide 2</em></td>
+<td><img src='renders/typography_font_sizes_complex_diff_002.png' width='400' /><br/><em>Slide 2</em></td></tr>
 </table>

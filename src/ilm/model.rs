@@ -8,7 +8,7 @@ pub(crate) enum TextAlignment {
 
 use crate::ilm::markdown::RichBlock;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct IlmTextRun {
     pub(crate) x: i64,
     pub(crate) y: i64,
@@ -44,6 +44,30 @@ pub(crate) struct IlmImage {
 pub(crate) enum IlmElement {
     Text(IlmTextRun),
     Image(IlmImage),
+    Table(IlmTable),
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct IlmTableCell {
+    pub(crate) text: IlmTextRun,
+    pub(crate) alignment: TextAlignment,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct IlmTableRow {
+    pub(crate) cells: Vec<IlmTableCell>,
+    pub(crate) is_header: bool,
+    pub(crate) row_height_emu: i64,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct IlmTable {
+    pub(crate) x: i64,
+    pub(crate) y: i64,
+    pub(crate) cx: i64,
+    pub(crate) cy: i64,
+    pub(crate) rows: Vec<IlmTableRow>,
+    pub(crate) col_widths_emu: Vec<i64>,
 }
 
 #[derive(Clone)]
