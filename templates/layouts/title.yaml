@@ -1,4 +1,5 @@
 layout: title
+description: "A slide with a large centered title and an optional subtitle. Great for the opening slide."
 editable_paths:
 - path: slides[*].slots.title
   operation: set_text

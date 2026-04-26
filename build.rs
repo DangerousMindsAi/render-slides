@@ -28,6 +28,8 @@ struct ElementSpec {
 struct TemplateYaml {
     layout: String,
     #[serde(default)]
+    description: String,
+    #[serde(default)]
     parameters: BTreeMap<String, f64>,
     editable_paths: Vec<EditablePathSpec>,
     elements: BTreeMap<String, ElementSpec>,
@@ -126,6 +128,7 @@ fn emit_manifest_module(templates: &BTreeMap<String, TemplateYaml>) -> String {
 
     output.push_str("pub struct LayoutDefinition {\n");
     output.push_str("    pub layout: &'static str,\n");
+    output.push_str("    pub description: &'static str,\n");
     output.push_str("    pub parameters: &'static [(&'static str, f64)],\n");
     output.push_str("    pub elements: &'static [LayoutElement],\n");
     output.push_str("}\n\n");
@@ -159,6 +162,7 @@ fn emit_manifest_module(templates: &BTreeMap<String, TemplateYaml>) -> String {
     for (layout_name, layout) in templates {
         output.push_str("    LayoutDefinition {\n");
         output.push_str(&format!("        layout: \"{}\",\n", escape_rust_string(layout_name)));
+        output.push_str(&format!("        description: \"{}\",\n", escape_rust_string(&layout.description)));
         output.push_str("        parameters: &[\n");
         for (param, val) in &layout.parameters {
             output.push_str(&format!("            (\"{}\", {}),\n", escape_rust_string(param), val));

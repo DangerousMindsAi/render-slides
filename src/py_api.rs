@@ -16,9 +16,15 @@ pub(crate) fn validate(ir_json: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
-pub(crate) fn describe_schema() -> PyResult<String> {
-    serde_json::to_string_pretty(&schema::schema_summary())
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize schema summary: {e}")))
+pub(crate) fn describe_layouts() -> PyResult<String> {
+    serde_json::to_string_pretty(&schema::describe_layouts())
+        .map_err(|e| PyValueError::new_err(format!("Failed to serialize layout summary: {e}")))
+}
+
+#[pyfunction]
+pub(crate) fn describe_tweaks() -> PyResult<String> {
+    serde_json::to_string_pretty(&schema::describe_tweaks())
+        .map_err(|e| PyValueError::new_err(format!("Failed to serialize tweaks summary: {e}")))
 }
 
 #[pyfunction(signature = (slide_id=None))]

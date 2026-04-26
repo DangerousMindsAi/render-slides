@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 use jsonschema::{error::ValidationErrorKind, Draft, Validator};
 use serde_json::Value;
 
-use crate::types::SchemaSummary;
+
 
 const IR_SCHEMA_JSON: &str = include_str!("../schemas/v1/ir.schema.json");
 
@@ -32,19 +32,89 @@ pub(crate) fn parse_ir(ir_json: &str) -> Result<Value, String> {
     Ok(parsed)
 }
 
-pub(crate) fn schema_summary() -> SchemaSummary {
-    SchemaSummary {
+pub(crate) fn describe_layouts() -> crate::types::LayoutsSummary {
+    let mut slide_layouts = Vec::new();
+    for layout_def in crate::generated::LAYOUT_DEFINITIONS {
+        // Exclude internal layouts
+        if layout_def.layout == "refinement_controls" || layout_def.layout == "image_test" {
+            continue;
+        }
+
+        let (req, opt) = match layout_def.layout {
+            "title" => (vec!["title", "subtitle"], vec![]),
+            "title_body" => (vec!["title", "body"], vec!["subtitle"]),
+            "two_column" => (vec!["title", "left", "right"], vec!["subtitle"]),
+            "section" => (vec!["title", "subtitle"], vec![]),
+            "image_focus" => (vec!["title", "image", "caption"], vec!["subtitle"]),
+            "quote" => (vec!["quote", "attribution"], vec![]),
+            "comparison" => (vec!["title", "left", "right"], vec!["subtitle"]),
+            _ => (vec![], vec![]),
+        };
+
+        slide_layouts.push(crate::types::LayoutSpec {
+            name: layout_def.layout,
+            description: layout_def.description,
+            required_slots: req,
+            optional_slots: opt,
+        });
+    }
+
+    crate::types::LayoutsSummary {
         version: "0.1",
-        slide_layouts: vec![
-            "title",
-            "title_body",
-            "two_column",
-            "section",
-            "image_focus",
-            "quote",
-            "comparison",
-        ],
-        qualitative_aliases: vec!["smaller", "larger", "left justify"],
+        slide_layouts,
+    }
+}
+
+pub(crate) fn describe_tweaks() -> crate::types::TweakInstructions {
+    let mut qualitative = Vec::new();
+    let mut quantitative = Vec::new();
+
+    let mut seen = std::collections::HashSet::new();
+
+    for spec in crate::generated::TEMPLATE_OPERATION_SPECS {
+        if !seen.insert(spec.name) {
+            continue;
+        }
+
+        let op = crate::types::OperationSpec {
+            name: spec.name,
+            description: spec.description,
+            params: spec.params.to_vec(),
+            bounds: spec.bounds,
+        };
+
+        match spec.name {
+            "increase" | "decrease" | "set_alignment" | "set_layout" => qualitative.push(op),
+            "set_font_size" | "set_text" => quantitative.push(op),
+            _ => qualitative.push(op), // default fallback
+        }
+    }
+
+    let structural = vec![
+        crate::types::OperationSpec {
+            name: "add_slide",
+            description: "Appends a new slide with the specified layout to the presentation.",
+            params: vec!["layout"],
+            bounds: "layout must be a valid layout name",
+        },
+        crate::types::OperationSpec {
+            name: "remove_slide",
+            description: "Removes the slide at the target index.",
+            params: vec!["index"],
+            bounds: "index must be within bounds of slides array",
+        },
+        crate::types::OperationSpec {
+            name: "reorder_slide",
+            description: "Moves a slide from its current index to a new target index.",
+            params: vec!["from_index", "to_index"],
+            bounds: "indices must be within bounds of slides array",
+        },
+    ];
+
+    crate::types::TweakInstructions {
+        qualitative_tweaks: qualitative,
+        quantitative_tweaks: quantitative,
+        structural_operations: structural,
     }
 }
 

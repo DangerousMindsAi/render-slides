@@ -1,4 +1,5 @@
 layout: two_column
+description: "A slide with a title and two side-by-side content columns."
 parameters:
   split: 0.5
 editable_paths:

@@ -2,7 +2,8 @@
 
 from ._core import (
     copy_source_to_sink,
-    describe_schema,
+    describe_layouts,
+    describe_tweaks,
     explain_operation,
     get_examples,
     list_operations,
@@ -16,7 +17,8 @@ from ._core import (
 
 __all__ = [
     "validate",
-    "describe_schema",
+    "describe_layouts",
+    "describe_tweaks",
     "list_paths",
     "list_operations",
     "explain_operation",

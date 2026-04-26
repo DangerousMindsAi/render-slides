@@ -1,4 +1,5 @@
 layout: image_focus
+description: "A slide emphasizing a large image, accompanied by a title and a caption."
 editable_paths:
 - path: slides[*].slots.title
   operation: set_text

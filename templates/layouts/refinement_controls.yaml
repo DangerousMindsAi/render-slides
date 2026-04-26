@@ -43,4 +43,28 @@ editable_paths:
   params:
   - step
   bounds: step must be a positive integer; resulting size 10..72
+- path: slides[*].style.body.font_size
+  operation: set_font_size
+  description: Sets absolute font size.
+  params:
+  - size
+  bounds: size must be an integer between 10..72
+- path: slides[*].style.title.font_size
+  operation: increase
+  description: Increases font size by the requested step.
+  params:
+  - step
+  bounds: step must be a positive integer; resulting size 10..72
+- path: slides[*].style.title.font_size
+  operation: decrease
+  description: Decreases font size by the requested step.
+  params:
+  - step
+  bounds: step must be a positive integer; resulting size 10..72
+- path: slides[*].style.title.font_size
+  operation: set_font_size
+  description: Sets absolute font size.
+  params:
+  - size
+  bounds: size must be an integer between 10..72
 elements: {}

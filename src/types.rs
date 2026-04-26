@@ -1,13 +1,27 @@
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub(crate) struct SchemaSummary {
-    pub(crate) version: &'static str,
-    pub(crate) slide_layouts: Vec<&'static str>,
-    pub(crate) qualitative_aliases: Vec<&'static str>,
+pub(crate) struct LayoutSpec {
+    pub(crate) name: &'static str,
+    pub(crate) description: &'static str,
+    pub(crate) required_slots: Vec<&'static str>,
+    pub(crate) optional_slots: Vec<&'static str>,
 }
 
 #[derive(Serialize)]
+pub(crate) struct LayoutsSummary {
+    pub(crate) version: &'static str,
+    pub(crate) slide_layouts: Vec<LayoutSpec>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct TweakInstructions {
+    pub(crate) qualitative_tweaks: Vec<OperationSpec>,
+    pub(crate) quantitative_tweaks: Vec<OperationSpec>,
+    pub(crate) structural_operations: Vec<OperationSpec>,
+}
+
+#[derive(Serialize, Clone)]
 pub(crate) struct OperationSpec {
     pub(crate) name: &'static str,
     pub(crate) description: &'static str,
