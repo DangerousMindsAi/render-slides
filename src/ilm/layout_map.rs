@@ -32,11 +32,10 @@ fn measure_paragraph(
     bold_default: bool,
 ) -> f32 {
     let indent_px = para.list_level as f64 * 342900.0 / 9525.0;
-    
     // Pango renders text slightly narrower than cosmic_text on Linux due to shaping engine differences.
     // To ensure cosmic_text doesn't wrap prematurely (which leaves invisible trailing gaps),
     // we apply a compensation factor to slightly expand its bounding box calculation.
-    let cosmic_width_compensation = 1.15;
+    let cosmic_width_compensation = 1.05;
     let effective_width = ((width_px as f64 - indent_px) * cosmic_width_compensation).max(10.0) as f32;
     
     let mut buffer = Buffer::new(font_system, Metrics::new(font_size_px, line_height_px));
@@ -57,12 +56,9 @@ fn measure_paragraph(
     buffer.shape_until_scroll(font_system, true);
     
     let mut text_height = 0.0;
-    let mut line_count = 0;
     for run in buffer.layout_runs() {
         text_height += run.line_height;
-        line_count += 1;
     }
-    println!("measure_paragraph: w={} px={} -> {} lines", effective_width, font_size_px, line_count);
     text_height
 }
 

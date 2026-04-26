@@ -75,7 +75,7 @@ fn draw_rich_paragraph(
         if r.is_code || para.is_code_block {
             span = format!("<span font_family=\"Courier New\">{}</span>", span);
         } else {
-            let letter_spacing_px = ((font_size_px - 13.33) * 0.01200).max(0.0);
+            let letter_spacing_px = ((font_size_px - 13.33) * 0.00685).max(0.0);
             let letter_spacing = -(letter_spacing_px * pango::SCALE as f64) as i32;
             span = format!("<span letter_spacing=\"{}\">{}</span>", letter_spacing, span);
         }
