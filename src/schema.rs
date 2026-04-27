@@ -65,6 +65,56 @@ pub(crate) fn describe_layouts() -> crate::types::LayoutsSummary {
     }
 }
 
+pub(crate) fn get_initial_instructions() -> String {
+    r#"Generate a strictly valid JSON response containing a `slides` array matching the IR format. Example:
+{
+  "slides": [
+    {
+      "id": "slide_1",
+      "layout": "title_body",
+      "slots": {
+        "title": "My Title",
+        "body": "Markdown text here"
+      }
+    }
+  ]
+}
+
+# Formatting Rules
+- Every slide object MUST have a unique string `"id"` property (e.g., `"id": "slide_1"`). This is strictly required for the rendering engine to track components across layout tweaks.
+- If a layout requires an image slot (e.g., `image`, `stretch_img`), you MUST pass it as an object referencing the `FileId`, formatted exactly as: `{"image_data": "<FileId>"}`.
+- For scientific exponents, subscripts, or superscripts, ALWAYS use explicit HTML tags (e.g., 10<sup>-5</sup> or H<sub>2</sub>O) instead of literal Unicode superscript characters (e.g. 10⁻⁵). Do NOT wrap these HTML tags in code block backticks!
+- CRITICAL JSON ESCAPING: When generating lengthy text or Markdown tables for JSON tool parameters (like `body`), you MUST properly escape all newlines as `\n`! Never output raw line breaks inside a JSON string.
+
+You operate on a strict 960x720 canvas! Design for impact by correctly breaking up large bodies of text across multiple clean slides!
+"#.to_string()
+}
+
+pub(crate) fn get_tweak_instructions() -> String {
+    r#"# Tweaking and Refinement
+You are reviewing the generated presentation. If you need to modify the slides, you may ONLY use the available tweaking operations provided.
+
+The available tweaks are grouped into categories:
+1. **Qualitative Tweaks**: Shift the slide conceptually (e.g., `increase` font size, `set_layout`).
+2. **Quantitative Tweaks**: Force an absolute value (e.g., `set_font_size`, `set_text`).
+3. **Structural Operations**: Modify the array of slides (`add_slide`, `remove_slide`, `reorder_slide`).
+
+To apply a tweak, provide an array of operation objects. For example, to make the title on slide 0 larger:
+[
+  {
+    "path": "slides[id=slide_1].style.title.font_size",
+    "operation": "increase",
+    "step": 1
+  }
+]
+
+CRITICAL VISUAL QA: You will receive an image of the rendered layout. You MUST visually inspect this image carefully! 
+1. Compare the rendered image against your expectations. Look at each input slot you sent and ensure it was rendered correctly.
+2. If any input fails to render, if text overflows off the canvas, or if alignment is wrong, you MUST correct the deviation using the tweaking operations.
+3. If there is a problem you cannot correct after trying, you MUST note the uncorrectable problem explicitly in your response log.
+"#.to_string()
+}
+
 pub(crate) fn describe_tweaks(ir_json: &str) -> Result<crate::types::TweakInstructions, String> {
     let parsed = parse_ir(ir_json)?;
     let empty_slides = vec![];

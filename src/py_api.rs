@@ -27,6 +27,16 @@ pub(crate) fn describe_tweaks(ir_json: &str) -> PyResult<String> {
         .map_err(|e| PyValueError::new_err(format!("Failed to serialize tweaks summary: {e}")))
 }
 
+#[pyfunction]
+pub(crate) fn get_initial_instructions() -> PyResult<String> {
+    Ok(schema::get_initial_instructions())
+}
+
+#[pyfunction]
+pub(crate) fn get_tweak_instructions() -> PyResult<String> {
+    Ok(schema::get_tweak_instructions())
+}
+
 #[pyfunction(signature = (slide_id=None))]
 pub(crate) fn list_paths(slide_id: Option<usize>) -> PyResult<String> {
     let mut paths: Vec<String> = operations::all_editable_paths()

@@ -22,6 +22,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_api::validate, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::describe_layouts, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::describe_tweaks, m)?)?;
+    m.add_function(wrap_pyfunction!(py_api::get_initial_instructions, m)?)?;
+    m.add_function(wrap_pyfunction!(py_api::get_tweak_instructions, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::list_paths, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::list_operations, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::explain_operation, m)?)?;
