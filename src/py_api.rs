@@ -128,3 +128,9 @@ pub(crate) fn register_sink_handler(scheme: &str, handler: &str) -> PyResult<()>
 pub(crate) fn render_pptx(ir_json: &str, output_target: &str) -> PyResult<()> {
     output::render_pptx(ir_json, output_target)
 }
+
+#[pyfunction]
+pub(crate) fn apply_tweaks(ir_json: &str, tweaks_json: &str) -> PyResult<String> {
+    crate::patch::apply_tweaks(ir_json, tweaks_json)
+        .map_err(PyValueError::new_err)
+}

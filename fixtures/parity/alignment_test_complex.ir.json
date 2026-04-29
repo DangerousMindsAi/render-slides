@@ -1,6 +1,7 @@
 {
   "slides": [
     {
+      "id": "slide_0",
       "layout": "title_body",
       "style": {
         "alignment": "left"
@@ -11,6 +12,7 @@
       }
     },
     {
+      "id": "slide_1",
       "layout": "title_body",
       "style": {
         "alignment": "center"
@@ -21,6 +23,7 @@
       }
     },
     {
+      "id": "slide_2",
       "layout": "title_body",
       "style": {
         "alignment": "right"
@@ -31,6 +34,7 @@
       }
     },
     {
+      "id": "slide_3",
       "layout": "title_body",
       "style": {
         "alignment": "justify"

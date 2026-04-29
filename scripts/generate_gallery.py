@@ -62,6 +62,7 @@ elements:
     ir_image_test = {
         "slides": [
             {
+                "id": "slide_1",
                 "layout": "image_test",
                 "slots": {
                     "stretch_img": wide_img,
@@ -79,6 +80,7 @@ elements:
     ir_two_col = {
         "slides": [
             {
+                "id": "slide_1",
                 "layout": "two_column",
                 "params": {"split": 0.3},
                 "slots": {
@@ -94,8 +96,9 @@ elements:
 
     # 3. Alignment Test
     ir_align = {"slides": []}
-    for align in ["left", "center", "right", "justify"]:
+    for i, align in enumerate(["left", "center", "right", "justify"]):
         ir_align["slides"].append({
+            "id": f"slide_{i}",
             "layout": "title_body",
             "style": {"alignment": align},
             "slots": {
@@ -110,6 +113,7 @@ elements:
     ir_length = {
         "slides": [
             {
+                "id": "slide_1",
                 "layout": "two_column",
                 "slots": {
                     "title": "Text Length Stress Test",
@@ -121,6 +125,46 @@ elements:
     }
     with open("fixtures/parity/text_length_test_complex.ir.json", "w") as f:
         json.dump(ir_length, f, indent=2)
+
+    # 5. Markdown Test
+    markdown_content = """## Summary Statistics
+- **Total Associations Plotted**: 1519
+- **Top 10 Most Significant Traits**:
+
+| Trait | p-value |
+|-------|---------|
+| Apolipoprotein B levels | 3 × 10<sup>-418</sup> |
+| Total cholesterol levels | 4 × 10<sup>-392</sup> |
+| Low-density lipoprotein levels | 2 × 10<sup>-449</sup> |
+| LDL cholesterol levels | 3 × 10<sup>-563</sup> |
+| LDL cholesterol levels | 5.18 × 10<sup>-1390</sup> |
+| LDL cholesterol | 1.69 × 10<sup>-335</sup> |
+| Total cholesterol levels | 3.01 × 10<sup>-1163</sup> |
+| LDL cholesterol levels | 7.41 × 10<sup>-1444</sup> |
+| LDL cholesterol levels | 2 × 10<sup>-421</sup> |
+| Non-HDL cholesterol levels | 1.28 × 10<sup>-925</sup> |
+
+## Visualization
+![PheWAS Scatter Plot](83ca84ac-e483-4e52-937f-f96206f7bf88)
+
+### Citations
+- \[1\] [https://platform.opentargets.org/variant/1_55039974_G_T](https://platform.opentargets.org/variant/1_55039974_G_T)
+"""
+
+    ir_markdown = {
+        "slides": [
+            {
+                "id": "slide_1",
+                "layout": "title_body",
+                "slots": {
+                    "title": "Markdown Handling Test",
+                    "body": markdown_content
+                }
+            }
+        ]
+    }
+    with open("fixtures/parity/markdown_test_complex.ir.json", "w") as f:
+        json.dump(ir_markdown, f, indent=2)
 
 def generate_diff_image(img1_path, img2_path, out_path):
     img1 = Image.open(img1_path).convert("RGB")

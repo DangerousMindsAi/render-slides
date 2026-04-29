@@ -13,6 +13,8 @@ pub(crate) struct RichRun {
     pub(crate) italic: bool,
     pub(crate) strikethrough: bool,
     pub(crate) is_code: bool,
+    pub(crate) superscript: bool,
+    pub(crate) subscript: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +89,8 @@ pub(crate) fn parse_markdown(text: &str) -> Vec<RichBlock> {
     let mut italic = false;
     let mut strikethrough = false;
     let is_code = false;
+    let mut superscript = false;
+    let mut subscript = false;
 
     // Helper to start a paragraph if needed (e.g. for tight lists)
     let ensure_para = |current_para: &mut Option<RichParagraph>, list_stack: &Vec<(ListType, u64)>, is_quote: bool, is_code_block: bool| {
@@ -269,6 +273,18 @@ pub(crate) fn parse_markdown(text: &str) -> Vec<RichBlock> {
                 }
                 _ => {}
             },
+            Event::Html(html) | Event::InlineHtml(html) => {
+                let tag = html.trim().to_lowercase();
+                if tag.starts_with("<sup>") || tag.starts_with("<sup ") {
+                    superscript = true;
+                } else if tag.starts_with("</sup>") {
+                    superscript = false;
+                } else if tag.starts_with("<sub>") || tag.starts_with("<sub ") {
+                    subscript = true;
+                } else if tag.starts_with("</sub>") {
+                    subscript = false;
+                }
+            }
             Event::Text(text) => {
                 ensure_para(&mut current_para, &list_stack, is_quote, is_code_block);
                 if let Some(p) = &mut current_para {
@@ -278,6 +294,8 @@ pub(crate) fn parse_markdown(text: &str) -> Vec<RichBlock> {
                         italic,
                         strikethrough,
                         is_code,
+                        superscript,
+                        subscript,
                     });
                 }
             }
@@ -290,6 +308,8 @@ pub(crate) fn parse_markdown(text: &str) -> Vec<RichBlock> {
                         italic,
                         strikethrough,
                         is_code: true,
+                        superscript,
+                        subscript,
                     });
                 }
             }
@@ -301,6 +321,8 @@ pub(crate) fn parse_markdown(text: &str) -> Vec<RichBlock> {
                         italic: false,
                         strikethrough: false,
                         is_code: false,
+                        superscript,
+                        subscript,
                     });
                 }
             }

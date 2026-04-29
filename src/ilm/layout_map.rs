@@ -45,7 +45,7 @@ fn measure_paragraph(
     for run in &para.runs {
         let weight = if bold_default || run.bold { cosmic_text::Weight::BOLD } else { cosmic_text::Weight::NORMAL };
         let style = if run.italic { cosmic_text::Style::Italic } else { cosmic_text::Style::Normal };
-        let family = if run.is_code || para.is_code_block { Family::Name("Courier New") } else { Family::Name("Arial") };
+        let family = if run.is_code || para.is_code_block { Family::Monospace } else { Family::Name("Arial") };
         
         let attrs = Attrs::new().weight(weight).style(style).family(family);
         spans_data.push((run.text.clone(), attrs));

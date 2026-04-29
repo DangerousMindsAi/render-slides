@@ -20,7 +20,8 @@
       "slots": {
         "title": "Q2 Product Update",
         "body": "- Launch metrics exceeded goal\n- Onboarded 3 pilot customers"
-      }
+      },
+      "id": "slide_1"
     }
   ]
 }

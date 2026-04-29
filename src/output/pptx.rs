@@ -37,10 +37,11 @@ fn render_text_run_blocks(tb: &IlmTextRun) -> String {
                     let i_attr = if r.italic { " i=\"1\"" } else { "" };
                     let strike_attr = if r.strikethrough { " strike=\"sngStrike\"" } else { "" };
                     let font_family = if r.is_code || para.is_code_block { "Courier New" } else { "Arial" };
+                    let baseline_attr = if r.superscript { " baseline=\"30000\"" } else if r.subscript { " baseline=\"-25000\"" } else { "" };
                     
                     run_xml.push_str(&format!(
-                        "<a:r><a:rPr lang=\"en-US\" sz=\"{}\"{}{}{}> <a:latin typeface=\"{}\"/> </a:rPr><a:t>{}</a:t></a:r>",
-                        tb.font_size_pt * 100, b_attr, i_attr, strike_attr, font_family, xml_escape(&r.text)
+                        "<a:r><a:rPr lang=\"en-US\" sz=\"{}\"{}{}{}{}> <a:latin typeface=\"{}\"/> </a:rPr><a:t>{}</a:t></a:r>",
+                        tb.font_size_pt * 100, b_attr, i_attr, strike_attr, baseline_attr, font_family, xml_escape(&r.text)
                     ));
                 }
                 

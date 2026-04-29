@@ -1,25 +1,11 @@
 {
-  "theme": {
-    "typography": {
-      "base_font_family": "'IBM Plex Sans', sans-serif",
-      "title_font_size": "52px",
-      "body_font_size": "30px"
-    },
-    "spacing": {
-      "slide_padding": "56px"
-    },
-    "colors": {
-      "background": "#f9fafb",
-      "text_primary": "#111827",
-      "text_muted": "#6b7280"
-    }
-  },
   "slides": [
     {
+      "id": "slide_1",
       "layout": "title_body",
       "slots": {
-        "title": "Markdown Test",
-        "body": "Here is a paragraph with **bold**, *italic*, and ~~strikethrough~~ text. You can also write `inline code`.\n\n> This is a blockquote.\n> It can span multiple lines.\n\nHere is an unordered list:\n- Item 1\n- Item 2 with a nested code block:\n  ```\n  let x = 10;\n  let y = 20;\n  ```\n- Item 3\n\nAnd an ordered list:\n1. First step\n2. Second step\n\nEnd of test."
+        "title": "Markdown Handling Test",
+        "body": "## Summary Statistics\n- **Total Associations Plotted**: 1519\n- **Top 10 Most Significant Traits**:\n\n| Trait | p-value |\n|-------|---------|\n| Apolipoprotein B levels | 3 \u00d7 10<sup>-418</sup> |\n| Total cholesterol levels | 4 \u00d7 10<sup>-392</sup> |\n| Low-density lipoprotein levels | 2 \u00d7 10<sup>-449</sup> |\n| LDL cholesterol levels | 3 \u00d7 10<sup>-563</sup> |\n| LDL cholesterol levels | 5.18 \u00d7 10<sup>-1390</sup> |\n| LDL cholesterol | 1.69 \u00d7 10<sup>-335</sup> |\n| Total cholesterol levels | 3.01 \u00d7 10<sup>-1163</sup> |\n| LDL cholesterol levels | 7.41 \u00d7 10<sup>-1444</sup> |\n| LDL cholesterol levels | 2 \u00d7 10<sup>-421</sup> |\n| Non-HDL cholesterol levels | 1.28 \u00d7 10<sup>-925</sup> |\n\n## Visualization\n![PheWAS Scatter Plot](83ca84ac-e483-4e52-937f-f96206f7bf88)\n\n### Citations\n- \\[1\\] [https://platform.opentargets.org/variant/1_55039974_G_T](https://platform.opentargets.org/variant/1_55039974_G_T)\n"
       }
     }
   ]

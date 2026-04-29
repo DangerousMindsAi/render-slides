@@ -26,7 +26,7 @@ def test_validate_rejects_invalid_json():
 
 def test_validate_accepts_refinement_config_schema():
     ir = {
-        "slides": [{"layout": "title_body", "slots": {"title": "Hello", "body": "World"}}],
+        "slides": [{"id": "slide_1", "layout": "title_body", "slots": {"title": "Hello", "body": "World"}}],
         "refinement_config": {
             "paths": [
                 {
@@ -50,7 +50,7 @@ def test_validate_accepts_refinement_config_schema():
 
 def test_validate_accepts_large_refinement_step_without_static_maximum():
     ir = {
-        "slides": [{"layout": "title_body", "slots": {"title": "Hello", "body": "World"}}],
+        "slides": [{"id": "slide_1", "layout": "title_body", "slots": {"title": "Hello", "body": "World"}}],
         "refinement_config": {
             "paths": [
                 {
@@ -67,7 +67,7 @@ def test_validate_accepts_large_refinement_step_without_static_maximum():
 
 def test_validate_rejects_invalid_refinement_operation_name():
     ir = {
-        "slides": [{"layout": "title_body", "slots": {"title": "Hello"}}],
+        "slides": [{"id": "slide_1", "layout": "title_body", "slots": {"title": "Hello"}}],
         "refinement_config": {
             "paths": [
                 {
@@ -90,7 +90,7 @@ def test_validate_accepts_slide_style_fields_used_by_refinement_paths():
     ir = {
         "slides": [
             {
-                "layout": "title_body",
+                "id": "slide_1", "layout": "title_body",
                 "slots": {"title": "Hello", "body": "World"},
                 "style": {
                     "alignment": "left",
@@ -107,9 +107,9 @@ def test_validate_rejects_invalid_style_alignment_value():
     ir = {
         "slides": [
             {
-                "layout": "title_body",
-                "slots": {"title": "Hello"},
-                "style": {"alignment": "justify"},
+                "id": "slide_1", "layout": "title_body",
+                "slots": {"title": "Hello", "body": "World"},
+                "style": {"alignment": "invalid_value"},
             }
         ]
     }
@@ -125,7 +125,7 @@ def test_validate_rejects_missing_layout_required_slot():
     ir = {
         "slides": [
             {
-                "layout": "image_focus",
+                "id": "slide_1", "layout": "image_focus",
                 "slots": {
                     "title": "Launch Preview",
                     "image": "https://example.com/image.png",
@@ -145,11 +145,11 @@ def test_validate_rejects_missing_layout_required_slot():
     assert 'suggested_fix="Add slots.caption as a string value."' in str(exc_info.value)
 
 
-def test_describe_schema_contains_expected_keys():
-    schema = json.loads(render_slides.describe_schema())
+def test_describe_layouts_contains_expected_keys():
+    schema = json.loads(render_slides.describe_layouts())
     assert schema["version"] == "0.1"
-    assert "title_body" in schema["slide_layouts"]
-    assert "left justify" in schema["qualitative_aliases"]
+    layout_names = [l["name"] for l in schema["slide_layouts"]]
+    assert "title_body" in layout_names
 
 
 def test_copy_source_to_sink_roundtrip(tmp_path):
@@ -244,7 +244,7 @@ def test_render_html_preview_renders_template_output():
     ir = {
         "slides": [
             {
-                "layout": "title_body",
+                "id": "slide_1", "layout": "title_body",
                 "slots": {"title": "Quarterly Update", "body": "Highlights"},
             }
         ]
@@ -261,7 +261,7 @@ def test_render_html_preview_escapes_html_in_slot_values():
     ir = {
         "slides": [
             {
-                "layout": "title_body",
+                "id": "slide_1", "layout": "title_body",
                 "slots": {"title": "<b>unsafe</b>", "body": "ok"},
             }
         ]
@@ -277,7 +277,7 @@ def test_render_html_preview_emits_default_theme_tokens():
     ir = {
         "slides": [
             {
-                "layout": "title_body",
+                "id": "slide_1", "layout": "title_body",
                 "slots": {"title": "Defaults", "body": "Theme"},
             }
         ]
@@ -297,7 +297,7 @@ def test_render_html_preview_applies_theme_overrides():
         },
         "slides": [
             {
-                "layout": "title_body",
+                "id": "slide_1", "layout": "title_body",
                 "slots": {"title": "Overrides", "body": "Applied"},
             }
         ],
@@ -334,8 +334,8 @@ def test_render_pngs_writes_one_file_per_slide(tmp_path):
     output_dir = tmp_path / "slides"
     ir = {
         "slides": [
-            {"layout": "title", "slots": {"title": "A", "subtitle": "B"}},
-            {"layout": "quote", "slots": {"quote": "Q", "attribution": "Auth"}},
+            {"id": "slide_1", "layout": "title", "slots": {"title": "A", "subtitle": "B"}},
+            {"id": "slide_1", "layout": "quote", "slots": {"quote": "Q", "attribution": "Auth"}},
         ]
     }
 
@@ -358,7 +358,7 @@ def test_render_pngs_writes_one_file_per_slide(tmp_path):
 
 def test_render_pptx_writes_openxml_package(tmp_path):
     output_path = tmp_path / "deck.pptx"
-    ir = {"slides": [{"layout": "title", "slots": {"title": "A", "subtitle": "B"}}]}
+    ir = {"slides": [{"id": "slide_1", "layout": "title", "slots": {"title": "A", "subtitle": "B"}}]}
 
     render_slides.render_pptx(json.dumps(ir), str(output_path))
 

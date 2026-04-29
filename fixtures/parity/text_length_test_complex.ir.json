@@ -1,6 +1,7 @@
 {
   "slides": [
     {
+      "id": "slide_1",
       "layout": "two_column",
       "slots": {
         "title": "Text Length Stress Test",

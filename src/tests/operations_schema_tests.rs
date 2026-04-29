@@ -108,3 +108,40 @@ fn validate_ir_accepts_required_slots_for_layout() {
 
     assert!(validate_ir(&parsed).is_ok());
 }
+
+#[test]
+fn apply_tweaks_modifies_ast_correctly() {
+    let ir = json!({
+        "slides": [{
+            "id": "slide_1",
+            "layout": "title_body",
+            "style": { "title": { "font_size": 24 } },
+            "slots": { "title": "Old Title", "body": "Body" }
+        }]
+    }).to_string();
+
+    let tweaks = json!([
+        {
+            "path": "slides[id=slide_1].slots.title",
+            "operation": "set_text",
+            "text": "New Title"
+        },
+        {
+            "path": "slides[id=slide_1].style.title.font_size",
+            "operation": "increase",
+            "step": 2
+        },
+        {
+            "operation": "add_slide",
+            "layout": "title"
+        }
+    ]).to_string();
+
+    let new_ir_str = crate::patch::apply_tweaks(&ir, &tweaks).unwrap();
+    let new_ir: serde_json::Value = serde_json::from_str(&new_ir_str).unwrap();
+
+    assert_eq!(new_ir["slides"][0]["slots"]["title"], "New Title");
+    assert_eq!(new_ir["slides"][0]["style"]["title"]["font_size"], 26);
+    assert_eq!(new_ir["slides"].as_array().unwrap().len(), 2);
+    assert_eq!(new_ir["slides"][1]["layout"], "title");
+}

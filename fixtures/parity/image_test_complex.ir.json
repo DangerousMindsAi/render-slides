@@ -1,6 +1,7 @@
 {
   "slides": [
     {
+      "id": "slide_1",
       "layout": "image_test",
       "slots": {
         "stretch_img": {

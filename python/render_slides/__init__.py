@@ -15,6 +15,7 @@ from ._core import (
     render_pngs,
     render_pptx,
     validate,
+    apply_tweaks,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "register_sink_handler",
     "render_pngs",
     "render_pptx",
+    "apply_tweaks",
 ]

@@ -15,6 +15,7 @@ mod py_api;
 mod schema;
 mod theme;
 mod types;
+mod patch;
 
 #[pymodule]
 /// Registers the Python module exports provided by this Rust extension.
@@ -33,6 +34,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_api::register_sink_handler, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::render_pngs, m)?)?;
     m.add_function(wrap_pyfunction!(py_api::render_pptx, m)?)?;
+    m.add_function(wrap_pyfunction!(py_api::apply_tweaks, m)?)?;
     Ok(())
 }
 

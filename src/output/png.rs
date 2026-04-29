@@ -60,7 +60,12 @@ fn draw_rich_paragraph(
             span = format!("<s>{}</s>", span);
         }
         if r.is_code || para.is_code_block {
-            span = format!("<span font_family=\"Courier New\">{}</span>", span);
+            span = format!("<span font_family=\"monospace\">{}</span>", span);
+        }
+        if r.superscript {
+            span = format!("<sup>{}</sup>", span);
+        } else if r.subscript {
+            span = format!("<sub>{}</sub>", span);
         }
         markup.push_str(&span);
     }

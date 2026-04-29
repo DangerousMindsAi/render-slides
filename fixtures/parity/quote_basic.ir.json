@@ -3,9 +3,10 @@
     {
       "layout": "quote",
       "slots": {
-        "quote": "Quality is everyone’s responsibility.",
+        "quote": "Quality is everyone\u2019s responsibility.",
         "attribution": "Engineering Playbook"
-      }
+      },
+      "id": "slide_1"
     }
   ]
 }

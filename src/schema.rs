@@ -108,10 +108,12 @@ To apply a tweak, provide an array of operation objects. For example, to make th
   }
 ]
 
-CRITICAL VISUAL QA: You will receive an image of the rendered layout. You MUST visually inspect this image carefully! 
-1. Compare the rendered image against your expectations. Look at each input slot you sent and ensure it was rendered correctly.
-2. If any input fails to render, if text overflows off the canvas, or if alignment is wrong, you MUST correct the deviation using the tweaking operations.
-3. If there is a problem you cannot correct after trying, you MUST note the uncorrectable problem explicitly in your response log.
+CRITICAL VISUAL QA & AUTO-FIT: You will receive an image of the rendered layout. You MUST visually inspect this image carefully!
+1. Compare the rendered image against your expectations.
+2. The rendering engine has an AUTO-FIT feature. Font sizes are automatically scaled down to fit the bounding box. If text STILL overflows the slide, it means the absolute minimum font size (10pt) was reached! 
+3. DO NOT attempt to fix overflow by using the `decrease` font_size tweak! It will not work if the text is too long.
+4. Instead, you MUST resolve overflow by either summarizing the text (using `set_text`), or splitting the content into an additional slide (using the `add_slide` structural operation).
+5. If there is a problem you cannot correct after trying, you MUST note the uncorrectable problem explicitly in your response log.
 "#.to_string()
 }
 

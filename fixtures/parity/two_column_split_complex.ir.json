@@ -1,6 +1,7 @@
 {
   "slides": [
     {
+      "id": "slide_1",
       "layout": "two_column",
       "params": {
         "split": 0.3
